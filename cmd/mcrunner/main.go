@@ -73,6 +73,11 @@ func main() {
 	}
 
 	if args.CmdPipe != "" {
+		os.Remove(args.CmdPipe)
+		err := syscall.Mkfifo(args.CmdPipe, 0666)
+		if err != nil {
+			logger.Fatalln("Make named pipe file error:", err)
+		}
 		cmdPipe, err = os.OpenFile(args.CmdPipe,
 			syscall.O_CREAT|syscall.O_RDONLY|syscall.O_NONBLOCK, os.ModeNamedPipe)
 		if err != nil {
@@ -157,13 +162,14 @@ func main() {
 				logger.Printf("Sleeping %0.f seconds before stopping server\n", args.StopServerAnnounceDelay.Seconds())
 				time.Sleep(args.StopServerAnnounceDelay)
 			}
+			sendCmd("save-all\n")
 			sendCmd("stop\n")
 			logger.Println("Waiting for server to stopped...")
 			time.AfterFunc(args.StopDuration, func() {
 				logger.Errorln("Still not stopped, so killing server process")
 				err := cmd.Process.Kill()
 				if err != nil {
-					logger.Errorln("Failed to forcefully kill process")
+					logger.Errorln("Failed to shutdown server.")
 				}
 			})
 		case exitCode := <-cmdExitChan:
