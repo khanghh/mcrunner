@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -26,6 +27,27 @@ var (
 	cmdExitChan chan int
 )
 
+var (
+	AppName    string
+	Version    string
+	CommitHash string
+	BuiltTime  string
+	OsArch     string
+)
+
+func init() {
+	AppName = "Minecraft server runner"
+	OsArch = runtime.GOOS + "/" + runtime.GOARCH
+}
+
+func printVersion() {
+	fmt.Println(AppName)
+	fmt.Printf(" Version:\t%s\n", Version)
+	fmt.Printf(" Commit:\t%s\n", CommitHash)
+	fmt.Printf(" Built Time:\t%s\n", BuiltTime)
+	fmt.Printf(" OS/Arch:\t%s\n", OsArch)
+}
+
 type Args struct {
 	Debug                   bool          `usage:"Enable debug logging"`
 	Bootstrap               string        `usage:"Specifies a file with commands to initially send to the server"`
@@ -34,6 +56,7 @@ type Args struct {
 	DetachStdin             bool          `usage:"Don't forward stdin and allow process to be put in background"`
 	Shell                   string        `usage:"When set, pass the arguments to this shell"`
 	CmdPipe                 string        `usage:"Specifies a fifo file to pipe minecraft command to stdin"`
+	Version                 bool          `usage:"Show version information"`
 }
 
 func main() {
@@ -47,6 +70,11 @@ func main() {
 	err := flagsfiller.Parse(&args)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if args.Version {
+		printVersion()
+		return
 	}
 
 	if args.Debug {
