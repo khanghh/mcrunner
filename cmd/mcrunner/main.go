@@ -79,7 +79,7 @@ func main() {
 			logger.Fatalln("Make named pipe file error:", err)
 		}
 		cmdPipe, err = os.OpenFile(args.CmdPipe,
-			syscall.O_CREAT|syscall.O_RDONLY|syscall.O_NONBLOCK, os.ModeNamedPipe)
+			syscall.O_CREAT|syscall.O_RDONLY|syscall.O_RDWR, os.ModeNamedPipe)
 		if err != nil {
 			logger.Errorln("Unable to read named pipe file", err)
 		}
@@ -116,7 +116,7 @@ func main() {
 		}
 	}
 
-	// Relay stdin/out/err between outside and server
+	// Relay stdout/stderr from server to runner
 	go func() {
 		io.Copy(os.Stdout, stdout)
 	}()
@@ -154,9 +154,14 @@ func main() {
 		}
 	}()
 
+	isStopping := false
 	for {
 		select {
 		case <-sigCh:
+			if isStopping {
+				continue
+			}
+			isStopping = true
 			if args.StopServerAnnounceDelay > 0 {
 				sendCmd(fmt.Sprintf("say Server shutting down in %0.f seconds\n", args.StopServerAnnounceDelay.Seconds()))
 				logger.Printf("Sleeping %0.f seconds before stopping server\n", args.StopServerAnnounceDelay.Seconds())
@@ -173,19 +178,14 @@ func main() {
 				}
 			})
 		case exitCode := <-cmdExitChan:
-			logger.Println("Done")
+			logger.Println("Server stopped.")
 			os.Exit(exitCode)
 		}
 	}
 }
 
-func sendCmd(cmd string) bool {
-	select {
-	case cmdCh <- cmd:
-		return true
-	default:
-		return false
-	}
+func sendCmd(cmd string) {
+	cmdCh <- cmd
 }
 
 func pipeCmd(input io.Reader) {
