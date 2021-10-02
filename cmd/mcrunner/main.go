@@ -92,13 +92,6 @@ func main() {
 	} else {
 		cmd = exec.Command(flag.Arg(0), flag.Args()[1:]...)
 	}
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-	}
-
-	if args.StopDuration == 0 {
-		args.StopDuration = 60 * time.Second
-	}
 
 	if args.CmdPipe != "" {
 		os.Remove(args.CmdPipe)
