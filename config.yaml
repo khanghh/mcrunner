@@ -1,0 +1,6 @@
+debug: false
+rootDir: "./server"
+consoleBufferSize: 1024
+listenAddr: ":3001"
+javaArgs: "-Xmx2G -Xms1G"
+serverJar: "server.jar"
