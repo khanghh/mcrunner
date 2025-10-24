@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.animate-pulse-custom {
+  animation: pulse 2s infinite;
+}
+
+/* Folder tree styles */
+.file-tree ul {
+  list-style-type: none;
+  padding-left: 1rem;
+}
+
+.file-tree > ul {
+  padding-left: 0;
+}
+
+.file-tree .folder > ul {
+  display: none;
+}
+
+.file-tree .folder.open > ul {
+  display: block;
+}
+
+.file-tree .folder > .name::before {
+  content: '▸';
+  display: inline-block;
+  width: 1em;
+  margin-right: 0.25rem;
+  transition: all 0.2s ease;
+}
+
+.file-tree .folder.open > .name::before {
+  content: '▾';
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #2c3e50;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #34495e;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #4a6378;
+}

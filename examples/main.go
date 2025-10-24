@@ -11,14 +11,9 @@ import (
 	"github.com/khanghh/mcrunner/internal/core"
 	"github.com/khanghh/mcrunner/internal/params"
 
-	_ "embed"
-
 	"github.com/gofiber/fiber/v2"
 	"github.com/urfave/cli/v2"
 )
-
-//go:embed templates/index.html
-var indexHTML []byte
 
 var (
 	app       *cli.App
@@ -105,12 +100,6 @@ func run(cli *cli.Context) error {
 
 	mockServer := &mockServerRunner{}
 	lfs := core.NewLocalFileService(config.RootDir)
-
-	// Serve embedded index.html
-	router.Get("/", func(c *fiber.Ctx) error {
-		c.Set("Content-Type", "text/html")
-		return c.Send(indexHTML)
-	})
 
 	if err := api.SetupRoutes(router, lfs, mockServer); err != nil {
 		slog.Error("Failed to setup routes", "error", err)

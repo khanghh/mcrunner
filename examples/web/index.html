@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>MC Runner | Multiplex PTY</title>
+		<link rel="stylesheet" href="https://unpkg.com/@xterm/xterm/css/xterm.css" />
+		<style>
+			html, body {
+				height: 100%;
+				margin: 0;
+				background: #111;
+			}
+			#container { display: flex; flex-direction: column; height: 100%; }
+			#status {
+				color: #9aa4ad;
+				background: #0b0f14;
+				font-family: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+				font-size: 12px;
+				padding: 6px 10px;
+				border-bottom: 1px solid #18222d;
+			}
+			#controls { color:#9aa4ad; background:#0b0f14; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:12px; padding:6px 10px; border-bottom:1px solid #18222d; display:flex; gap:12px; align-items:center; }
+			#terms { flex:1; display:flex; }
+			.pane { flex:1; display:flex; flex-direction:column; border-right:1px solid #1d2733; }
+			.pane:last-child { border-right:none; }
+			.title { color:#9aa4ad; background:#0b0f14; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:12px; padding:6px 10px; border-bottom:1px solid #18222d; display:flex; align-items:center; justify-content:space-between; }
+			.terminal { flex:1; }
+			.active { outline: 2px solid #3388ff55; outline-offset:-2px; }
+		</style>
+	</head>
+	<body>
+		<div id="container">
+			<div id="status">Disconnected</div>
+			<div id="controls">
+				<label><input type="checkbox" id="inputToggle" checked /> Send input</label>
+				<button id="clearBtn" type="button">Clear</button>
+				<span style="opacity:.7">Click a terminal to focus; input routes to the focused session.</span>
+			</div>
+			<div id="terms">
+				<div class="pane" data-session="sh1">
+					<div class="title">Session sh1 <span id="size-sh1"></span></div>
+					<div class="terminal" id="term-sh1"></div>
+				</div>
+				<div class="pane" data-session="sh2">
+					<div class="title">Session sh2 <span id="size-sh2"></span></div>
+					<div class="terminal" id="term-sh2"></div>
+				</div>
+			</div>
+		</div>
+
+		<script src="https://unpkg.com/@xterm/xterm/lib/xterm.js"></script>
+		<script src="https://unpkg.com/@xterm/addon-fit/lib/addon-fit.js"></script>
+
+		<script>
+			const statusEl = document.getElementById('status');
+			const inputToggle = document.getElementById('inputToggle');
+			const clearBtn = document.getElementById('clearBtn');
+
+			const wsProtocol = location.protocol === 'https:' ? 'wss' : 'ws';
+			const defaultPath = '/ws';
+			const base = `${wsProtocol}://${location.host}${defaultPath}`;
+
+			function setStatus(text) { statusEl.textContent = text; }
+
+			// Setup two terminals
+			function makeTerm(el) {
+				const t = new Terminal({
+					convertEol: true,
+					cursorBlink: true,
+					fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+					fontSize: 13,
+					theme: { background: '#111111' }
+				});
+				const fit = new FitAddon.FitAddon();
+				t.loadAddon(fit);
+				t.open(el);
+				return { t, fit };
+			}
+
+			const { t: termA, fit: fitA } = makeTerm(document.getElementById('term-sh1'));
+			const { t: termB, fit: fitB } = makeTerm(document.getElementById('term-sh2'));
+
+			function fitAll() { try { fitA.fit(); fitB.fit(); } catch(e) {} }
+			window.addEventListener('resize', () => { clearTimeout(window.__fit); window.__fit=setTimeout(fitAll,100); });
+			fitAll();
+
+			let focused = 'sh1';
+			const paneA = document.querySelector('.pane[data-session="sh1"]');
+			const paneB = document.querySelector('.pane[data-session="sh2"]');
+			function setFocus(id) {
+				focused = id;
+				paneA.classList.toggle('active', id==='sh1');
+				paneB.classList.toggle('active', id==='sh2');
+			}
+			paneA.addEventListener('click', () => setFocus('sh1'));
+			paneB.addEventListener('click', () => setFocus('sh2'));
+			setFocus('sh1');
+
+			// Base64 helpers
+			const enc = new TextEncoder();
+			const dec = new TextDecoder();
+			function b64FromBytes(u8) { let bin = ''; for (let i=0;i<u8.length;i++) bin += String.fromCharCode(u8[i]); return btoa(bin); }
+			function bytesFromB64(b64) { const bin = atob(b64); const u8 = new Uint8Array(bin.length); for (let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return u8; }
+
+			// Connect single WS and subscribe to both sessions
+			let ws;
+			function connect() {
+				setStatus(`Connecting ${base} ...`);
+				ws = new WebSocket(base);
+				ws.onopen = () => {
+					setStatus('Connected');
+					// subscribe with replay
+					ws.send(JSON.stringify({ type: 'subscribe', sessions: ['sh1','sh2'], replay: true }));
+					// send initial resize
+					sendResize('sh1', termA);
+					sendResize('sh2', termB);
+				};
+				ws.onmessage = (ev) => {
+					let msg; try { msg = JSON.parse(typeof ev.data==='string'?ev.data:dec.decode(new Uint8Array(ev.data))); } catch { return; }
+					if (msg.type === 'output' || msg.type === 'buffer') {
+						const u8 = bytesFromB64(msg.data || '');
+						const text = dec.decode(u8);
+						if (msg.sessionId === 'sh1') termA.write(text);
+						else if (msg.sessionId === 'sh2') termB.write(text);
+					} else if (msg.type === 'error') {
+						console.warn('server error', msg);
+					}
+				};
+				ws.onclose = () => { setStatus('Disconnected'); setTimeout(connect, 1000); };
+				ws.onerror = () => { /* transient */ };
+			}
+			connect();
+
+			function sendResize(sid, term) {
+				if (!ws || ws.readyState !== WebSocket.OPEN) return;
+				// fit and then send resize
+				try { (sid==='sh1'?fitA:fitB).fit(); } catch(e) {}
+				const cols = term.cols || 80; const rows = term.rows || 24;
+				ws.send(JSON.stringify({ type: 'resize', sessionId: sid, cols, rows }));
+				const sizeEl = document.getElementById('size-'+sid); if (sizeEl) sizeEl.textContent = `${cols}x${rows}`;
+			}
+			window.addEventListener('resize', () => { sendResize('sh1', termA); sendResize('sh2', termB); });
+
+			let inputEnabled = inputToggle.checked;
+			inputToggle.addEventListener('change', () => { inputEnabled = inputToggle.checked; });
+			function sendInput(term, sid, data) {
+				if (!ws || ws.readyState !== WebSocket.OPEN) return;
+				const u8 = enc.encode(data);
+				ws.send(JSON.stringify({ type: 'input', sessionId: sid, data: b64FromBytes(u8) }));
+			}
+			termA.onData((data) => { if (!inputEnabled) return; if (focused==='sh1') sendInput(termA,'sh1',data); });
+			termB.onData((data) => { if (!inputEnabled) return; if (focused==='sh2') sendInput(termB,'sh2',data); });
+			clearBtn.addEventListener('click', () => { termA.clear(); termB.clear(); fitAll(); });
+		</script>
+	</body>
+</html>

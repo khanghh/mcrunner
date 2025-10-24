@@ -1,5 +1,5 @@
 debug: false
-rootDir: "./server"
+rootDir: "/home/khang/projects/mcrunner/examples"
 consoleBufferSize: 1024
 listenAddr: ":3001"
 javaArgs: "-Xmx2G -Xms1G"
