@@ -9,9 +9,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build-vscode": "docker run --rm -v ${PWD}/dist/vscode:/workdir/dist $(docker build --rm -q ${PWD}/vscode-web)",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
     "lucide-vue-next": "^0.546.0",
     "vue": "^3.5.22",
     "vue-router": "^4.6.3"
