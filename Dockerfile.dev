@@ -10,7 +10,6 @@ RUN apt-get update && apt-get install -y \
   vim \
   default-jre
 
-
 # Set terminal color support
 ENV TERM=xterm-256color
 ENV CLICOLOR=1
@@ -24,7 +23,7 @@ RUN npm install --global corepack@latest
 # RUN wget -qO- https://get.pnpm.io/install.sh | ENV="$HOME/.bashrc" SHELL="$(which bash)" bash -
 
 # Install Golang
-ENV GO_VERSION=1.23.0
+ENV GO_VERSION=1.25.0
 RUN wget https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz && \
     rm -rf /usr/local/go && \
     tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz && \
@@ -33,10 +32,10 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 
 RUN mkdir -p ${GOPATH}/src ${GOPATH}/bin
 
-USER node
+# USER node
 
 WORKDIR /workdir
 
-EXPOSE 8080 3000 25565
+EXPOSE 3000
 
 CMD ["sh", "-c", "trap 'exit 0' INT TERM; while true; do sleep 1; done"]

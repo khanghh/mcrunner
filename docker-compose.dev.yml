@@ -10,8 +10,4 @@ services:
       - .:/workdir
     environment:
       - TZ=Asia/Ho_Chi_Minh
-    ports:
-      - "3000:3000"
-      - "8080:8080"
-      - "25565:25565"
     network_mode: bridge
