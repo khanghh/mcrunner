@@ -1,6 +1,7 @@
 debug: false
-rootDir: "/home/khang/projects/mcrunner/examples"
+rootDir: "/workdir/docs"
+staticDir: "./web/dist"
 consoleBufferSize: 1024
-listenAddr: ":3001"
+listenAddr: ":3000"
 javaArgs: "-Xmx2G -Xms1G"
 serverJar: "server.jar"

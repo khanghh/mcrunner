@@ -25,7 +25,7 @@ type LocalFileService interface {
 	Delete(relPath string) error
 	DeleteRecursive(relPath string) error
 	MkdirAll(relPath string) error
-	RenameDir(oldRelPath, newRelPath string) error
+	Rename(oldRelPath, newRelPath string, overwrite bool) error
 	DetectMIMEType(relPath string) (string, error)
 }
 
@@ -43,11 +43,9 @@ func SetupRoutes(router fiber.Router, lfs LocalFileService, mcserver ServerRunne
 
 	// File system
 	api.Get("/fs/*", fsHandler.Get)
-	api.Post("/fs/", fsHandler.Post)
 	api.Post("/fs/*", fsHandler.Post)
-	api.Put("/fs/", fsHandler.Put)
 	api.Put("/fs/*", fsHandler.Put)
-	api.Delete("/fs/", fsHandler.Delete)
+	api.Patch("/fs/*", fsHandler.Patch)
 	api.Delete("/fs/*", fsHandler.Delete)
 	return nil
 }

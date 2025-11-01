@@ -13,6 +13,7 @@ const (
 type Config struct {
 	Debug      bool   `mapstructure:"debug"`
 	RootDir    string `mapstructure:"rootDir"`
+	StaticDir  string `mapstructure:"staticDir"`
 	JarFile    string `mapstructure:"jarFile"`
 	ListenAddr string `mapstructure:"listenAddr"`
 }

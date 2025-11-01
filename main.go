@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	api "github.com/khanghh/mcrunner/internal/api/v1"
 	"github.com/khanghh/mcrunner/internal/core"
 	"github.com/khanghh/mcrunner/internal/params"
@@ -16,9 +17,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/urfave/cli/v2"
 )
-
-//go:embed templates/index.html
-var indexHTML []byte
 
 var (
 	app       *cli.App
@@ -94,6 +92,8 @@ func run(cli *cli.Context) error {
 	}
 
 	mustInitLogger(config.Debug || cli.IsSet(debugFlag.Name))
+	mockServer := &mockServerRunner{}
+	lfs := core.NewLocalFileService(config.RootDir)
 
 	router := fiber.New(fiber.Config{
 		CaseSensitive: true,
@@ -102,15 +102,8 @@ func run(cli *cli.Context) error {
 		ReadTimeout:   params.ServerReadTimeout,
 		WriteTimeout:  params.ServerWriteTimeout,
 	})
-
-	mockServer := &mockServerRunner{}
-	lfs := core.NewLocalFileService(config.RootDir)
-
-	// Serve embedded index.html
-	router.Get("/", func(c *fiber.Ctx) error {
-		c.Set("Content-Type", "text/html")
-		return c.Send(indexHTML)
-	})
+	router.Use(logger.New())
+	router.Static("/", config.StaticDir)
 
 	if err := api.SetupRoutes(router, lfs, mockServer); err != nil {
 		slog.Error("Failed to setup routes", "error", err)
