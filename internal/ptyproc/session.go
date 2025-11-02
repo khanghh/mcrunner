@@ -32,6 +32,9 @@ type PTYSession struct {
 	mu    sync.Mutex
 	alive bool
 
+	// buffer for recent output
+	buffer *ringBuffer
+
 	// optional: close signaling
 	doneOnce sync.Once
 	doneCh   chan struct{}
@@ -65,6 +68,7 @@ func NewPTYSession(name string, cmdPath string, args []string, env []string, dir
 		cmdArgs: append([]string(nil), args...),
 		env:     append([]string(nil), env...),
 		dir:     dir,
+		buffer:  newRingBuffer(1 << 20), // 1 MiB buffer
 		doneCh:  make(chan struct{}),
 	}
 }
