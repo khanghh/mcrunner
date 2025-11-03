@@ -1,21 +1,21 @@
 package websocket
 
 import (
-	"net"
 	"sync"
 
+	fiberws "github.com/gofiber/websocket/v2"
 	"github.com/khanghh/mcrunner/internal/params"
 )
 
 type Client struct {
-	conn   net.Conn
+	conn   *fiberws.Conn
 	out    chan []byte
 	closed chan struct{}
 	mu     sync.Mutex // protects the closed state
 }
 
 // NewClient creates a new websocket client with initialized channels.
-func NewClient(conn net.Conn) *Client {
+func NewClient(conn *fiberws.Conn) *Client {
 	cl := &Client{
 		conn:   conn,
 		out:    make(chan []byte, params.WSClientQueueSize),
@@ -66,7 +66,7 @@ func (c *Client) writeLoop() {
 			if !ok {
 				return
 			}
-			if _, err := c.conn.Write(frame); err != nil {
+			if err := c.conn.WriteMessage(fiberws.BinaryMessage, frame); err != nil {
 				c.Close()
 				return
 			}

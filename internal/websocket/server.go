@@ -17,12 +17,15 @@ type Server struct {
 	handlers []Handler
 	topics   map[string]*Topic
 	mu       sync.RWMutex
+	connWg   sync.WaitGroup
+	stopCh   chan struct{}
 }
 
 // NewServer constructs a multiplex Server bound to a PTYManager.
 func NewServer() *Server {
 	return &Server{
 		topics: make(map[string]*Topic),
+		stopCh: make(chan struct{}),
 	}
 }
 
@@ -40,15 +43,16 @@ func (s *Server) onClientConnect(ctx *Ctx) {
 
 func (s *Server) FiberHandler() fiber.Handler {
 	return fiberws.New(func(conn *fiberws.Conn) {
-		cl := NewClient(conn.NetConn())
+		s.connWg.Add(1)
+		cl := NewClient(conn)
 		ctx, cancel := context.WithCancel(context.Background())
-		handlerCtx := &Ctx{
+		connCtx := &Ctx{
 			context: ctx,
 			server:  s,
 			client:  cl,
 		}
 
-		s.onClientConnect(handlerCtx)
+		s.onClientConnect(connCtx)
 
 		// cleanup on exit
 		defer func() {
@@ -66,7 +70,14 @@ func (s *Server) FiberHandler() fiber.Handler {
 			}
 
 			cancel()
-			handlerCtx.wg.Wait()
+			connCtx.wg.Wait()
+			cl.Close()
+			s.connWg.Done()
+		}()
+
+		// server shutdown handling
+		go func() {
+			<-s.stopCh
 			cl.Close()
 		}()
 
@@ -87,7 +98,7 @@ func (s *Server) FiberHandler() fiber.Handler {
 				continue
 			}
 
-			if err := s.handleMessage(handlerCtx, &msg); err != nil {
+			if err := s.handleMessage(connCtx, &msg); err != nil {
 				slog.Error("Could not handle message", "type", msg.Type, "error", err)
 			}
 		}
@@ -115,22 +126,6 @@ func (s *Server) sendError(cl *Client, msg string) error {
 	return nil
 }
 
-func (s *Server) getOrCreateTopic(topicName string) *Topic {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	topic, ok := s.topics[topicName]
-	if ok {
-		return topic
-	}
-
-	s.topics[topicName] = &Topic{
-		id:   topicName,
-		subs: make(map[*Client]struct{}),
-	}
-	return s.topics[topicName]
-}
-
 func (s *Server) clientSubscribe(cl *Client, topicName string) error {
 	s.mu.RLock()
 	topic, ok := s.topics[topicName]
@@ -153,22 +148,38 @@ func (s *Server) clientUnsubscribe(cl *Client, topicName string) error {
 	return nil
 }
 
+func (s *Server) getOrCreateTopic(topicName string) *Topic {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	topic, ok := s.topics[topicName]
+	if ok {
+		return topic
+	}
+
+	s.topics[topicName] = &Topic{
+		id:   topicName,
+		subs: make(map[*Client]struct{}),
+	}
+	return s.topics[topicName]
+}
+
 func (s *Server) Broadcast(topicName string, message *Message) {
 	data, err := proto.Marshal(message)
 	if err != nil {
 		slog.Error("Could not marshal broadcast message", "error", err)
 		return
 	}
-
-	topic := s.getOrCreateTopic(topicName)
-	topic.subsMu.RLock()
-	for cl := range topic.subs {
-		cl.Send(data)
-	}
-	topic.subsMu.RUnlock()
+	s.getOrCreateTopic(topicName).Broadcast(data)
 }
 
 // RegisterHandler registers a single handler for the given message type.
 func (s *Server) RegisterHandler(handler Handler) {
 	s.handlers = append(s.handlers, handler)
+}
+
+func (s *Server) Shutdown() error {
+	close(s.stopCh)
+	s.connWg.Wait()
+	return nil
 }
