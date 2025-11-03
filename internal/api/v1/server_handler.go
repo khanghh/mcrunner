@@ -7,16 +7,16 @@ import (
 // ServerHandler handles server lifecycle management requests
 type ServerHandler struct {
 	*BaseHandler
-	serverRunner ServerRunner
-	Status       string
+	mcserver MCServer
+	Status   string
 }
 
 // NewServerHandler creates a new ServerHandler instance
-func NewServerHandler(serverRunner ServerRunner) *ServerHandler {
+func NewServerHandler(mcserver MCServer) *ServerHandler {
 	return &ServerHandler{
-		BaseHandler:  &BaseHandler{},
-		serverRunner: serverRunner,
-		Status:       "stopped",
+		BaseHandler: &BaseHandler{},
+		mcserver:    mcserver,
+		Status:      "stopped",
 	}
 }
 
@@ -55,7 +55,7 @@ func (h *ServerHandler) PostCommand(c *fiber.Ctx) error {
 	if err := c.BodyParser(&body); err != nil {
 		return h.SendError(c, 400, "invalid body")
 	}
-	if err := h.serverRunner.SendCommand(body.Command); err != nil {
+	if err := h.mcserver.SendCommand(body.Command); err != nil {
 		return h.SendError(c, 500, "failed to send command")
 	}
 	return h.SendJSON(c, fiber.Map{"status": "sent"})
