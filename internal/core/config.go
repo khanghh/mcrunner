@@ -12,15 +12,18 @@ const (
 
 type Config struct {
 	Debug      bool   `mapstructure:"debug"`
-	RootDir    string `mapstructure:"rootDir"`
+	ServerCmd  string `mapstructure:"serverCmd"`
+	ServerDir  string `mapstructure:"serverDir"`
 	StaticDir  string `mapstructure:"staticDir"`
-	JarFile    string `mapstructure:"jarFile"`
 	ListenAddr string `mapstructure:"listenAddr"`
 }
 
 func (c *Config) Sanitize() error {
 	if c.ListenAddr == "" {
 		c.ListenAddr = DefaultListenAddr
+	}
+	if c.StaticDir == "" {
+		c.StaticDir = "./dist"
 	}
 	return nil
 }
