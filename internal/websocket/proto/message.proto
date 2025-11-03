@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+option go_package = "internal/websocket;websocket";
+
+enum MessageType {
+  // System message types
+  UNKNOWN = 0;
+  ERROR = 1;
+
+  // PTY related message types
+  PTY_BUFFER = 101;
+  PTY_INPUT = 102;
+  PTY_RESIZE = 103;
+}
+
+message Message {
+  MessageType type = 1;
+  string error = 2;
+  oneof payload {
+    PtyBuffer pty_buffer = 3;
+    PtyInput pty_input = 4;
+    PtyResize pty_resize = 5;
+  }
+}
+
+message PtyBuffer {
+  string session_id = 1;
+  bytes data = 2;
+}
+
+message PtyInput {
+  string session_id = 1;
+  bytes data = 2;
+}
+
+message PtyResize {
+  string session_id = 1;
+  uint32 cols = 2;
+  uint32 rows = 3;
+}
