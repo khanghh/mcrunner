@@ -54,54 +54,53 @@ func (s *Server) FiberHandler() fiber.Handler {
 
 		s.onClientConnect(connCtx)
 
-		// cleanup on exit
-		defer func() {
-			s.mu.Lock()
-			topics := make([]*Topic, 0, len(s.topics))
-			for _, topic := range s.topics {
-				topics = append(topics, topic)
-			}
-			s.mu.Unlock()
-
-			for _, topic := range topics {
-				topic.subsMu.Lock()
-				delete(topic.subs, cl)
-				topic.subsMu.Unlock()
-			}
-
-			cancel()
-			connCtx.wg.Wait()
-			cl.Close()
-			s.connWg.Done()
-		}()
-
-		// server shutdown handling
-		go func() {
-			<-s.stopCh
-			cl.Close()
-		}()
-
 		// read loop
-		for {
-			mt, data, err := conn.ReadMessage()
-			if err != nil {
-				break
-			}
-			if mt != fiberws.TextMessage && mt != fiberws.BinaryMessage {
-				continue
-			}
+		go func() {
+			for {
+				mt, data, err := conn.ReadMessage()
+				if err != nil {
+					break
+				}
+				if mt != fiberws.TextMessage && mt != fiberws.BinaryMessage {
+					continue
+				}
 
-			var msg Message
-			if err := proto.Unmarshal(data, &msg); err != nil {
-				// client sent bad message
-				slog.Error("client sent bad message", "blob", string(data), "error", err)
-				continue
-			}
+				var msg Message
+				if err := proto.Unmarshal(data, &msg); err != nil {
+					// client sent bad message
+					slog.Error("client sent bad message", "blob", string(data), "error", err)
+					continue
+				}
 
-			if err := s.handleMessage(connCtx, &msg); err != nil {
-				slog.Error("Could not handle message", "type", msg.Type, "error", err)
+				if err := s.handleMessage(connCtx, &msg); err != nil {
+					slog.Error("Could not handle message", "type", msg.Type, "error", err)
+				}
 			}
+		}()
+
+		// wait for either server shutdown or client disconnect
+		select {
+		case <-s.stopCh:
+		case <-cl.closed:
 		}
+
+		// cleanup on exit
+		s.mu.Lock()
+		topics := make([]*Topic, 0, len(s.topics))
+		for _, topic := range s.topics {
+			topics = append(topics, topic)
+		}
+		s.mu.Unlock()
+		for _, topic := range topics {
+			topic.subsMu.Lock()
+			delete(topic.subs, cl)
+			topic.subsMu.Unlock()
+		}
+
+		cancel()
+		connCtx.wg.Wait()
+		s.connWg.Done()
+
 	})
 }
 

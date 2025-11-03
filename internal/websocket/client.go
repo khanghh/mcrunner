@@ -37,9 +37,6 @@ func (c *Client) IsAlive() bool {
 // Send enqueues a frame to be sent to the client.
 // If the client is slow and the queue is full, the connection will be closed.
 func (c *Client) Send(frame []byte) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if !c.IsAlive() {
 		return ErrClientDisconnected
 	}
@@ -48,8 +45,7 @@ func (c *Client) Send(frame []byte) error {
 	case c.out <- frame:
 		return nil
 	default:
-		close(c.closed)
-		_ = c.conn.Close() // slow client protection
+		c.Close()
 		return ErrClientDisconnected
 	}
 }
@@ -74,7 +70,7 @@ func (c *Client) writeLoop() {
 	}
 }
 
-// Close closes the client connection and cleans up resources.
+// Close closes the client connection and cleans up s.
 func (c *Client) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -84,8 +80,6 @@ func (c *Client) Close() {
 	case <-c.closed:
 		return // already closed
 	default:
+		close(c.closed)
 	}
-
-	close(c.closed)
-	_ = c.conn.Close()
 }
