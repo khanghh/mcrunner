@@ -1,9 +1,9 @@
 package ptyproc
 
 import (
-	"errors"
 	"fmt"
 	"io"
+	"log"
 	"sync"
 	"time"
 )
@@ -32,12 +32,10 @@ type Options struct {
 
 // NewSession creates and starts a PTY session per the options and stores it by name.
 // If opts.Name is empty, a unique name is generated and returned.
-func (m *PTYManager) NewSession(opts *Options) (string, error) {
-	if opts == nil {
-		return "", errors.New("nil options")
-	}
+func (m *PTYManager) NewSession(opts Options) (*PTYSession, error) {
 	if opts.Command == "" {
 		// Allow default to /bin/bash via PTYSession if Command empty by passing ""
+		opts.Command = "/bin/bash"
 	}
 	name := opts.Name
 	if name == "" {
@@ -53,7 +51,7 @@ func (m *PTYManager) NewSession(opts *Options) (string, error) {
 	}
 	if _, exists := m.sessions[name]; exists {
 		m.mu.Unlock()
-		return "", fmt.Errorf("session %q already exists", name)
+		return nil, fmt.Errorf("session %q already exists", name)
 	}
 	m.sessions[name] = sess
 	m.mu.Unlock()
@@ -63,7 +61,7 @@ func (m *PTYManager) NewSession(opts *Options) (string, error) {
 		m.mu.Lock()
 		delete(m.sessions, name)
 		m.mu.Unlock()
-		return "", err
+		return nil, err
 	}
 
 	// Optional piping: attach stdout/stdin if provided.
@@ -85,7 +83,7 @@ func (m *PTYManager) NewSession(opts *Options) (string, error) {
 		}
 	}
 
-	return name, nil
+	return sess, nil
 }
 
 func (m *PTYManager) Shutdown() error {
@@ -97,6 +95,7 @@ func (m *PTYManager) Shutdown() error {
 	m.mu.RUnlock()
 	var firstErr error
 	for _, name := range names {
+		log.Printf("Stopping session %s\n", name)
 		if err := m.Stop(name); err != nil && firstErr == nil {
 			firstErr = err
 		}

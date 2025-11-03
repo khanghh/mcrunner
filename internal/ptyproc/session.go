@@ -57,9 +57,6 @@ func NewPTYSession(name string, cmdPath string, args []string, env []string, dir
 	if rows <= 0 {
 		rows = 24
 	}
-	if cmdPath == "" {
-		cmdPath = "/bin/bash"
-	}
 	return &PTYSession{
 		name:    name,
 		cols:    cols,
@@ -103,8 +100,8 @@ func (s *PTYSession) Start() error {
 		s.mu.Lock()
 		s.alive = false
 		s.mu.Unlock()
-		s.doneOnce.Do(func() { close(s.doneCh) })
 		s.closePTY()
+		s.doneOnce.Do(func() { close(s.doneCh) })
 	}()
 	return nil
 }
@@ -128,11 +125,10 @@ func (s *PTYSession) Stop() error {
 	}
 	// send SIGTERM
 	_ = cmd.Process.Signal(syscall.SIGTERM)
-	// wait with timeout, but do not force kill
 
+	// wait with timeout, but do not force kill
 	select {
 	case <-s.doneCh:
-		s.closePTY()
 		return nil
 	case <-time.After(1 * time.Minute):
 		return errors.New("timeout waiting for process to exit")
@@ -141,14 +137,13 @@ func (s *PTYSession) Stop() error {
 
 // Kill forcefully terminates the process (SIGKILL).
 func (s *PTYSession) Kill() error {
-	// Capture the underlying process pointer and liveness under lock to avoid races
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	alive := s.alive
 	var proc *os.Process
 	if s.cmd != nil {
 		proc = s.cmd.Process
 	}
-	s.mu.Unlock()
 	if !alive || proc == nil {
 		return nil
 	}
@@ -175,10 +170,6 @@ func (s *PTYSession) Wait() error {
 	<-s.doneCh
 	return nil
 }
-
-// Attach wires the session PTY to provided stdout/stdin until either side closes.
-// Caller is responsible for terminal modes if attaching to a real TTY.
-// Attach functionality removed; PTYSession runs headless.
 
 // Resize sets the PTY window size.
 func (s *PTYSession) Resize(cols, rows int) error {
