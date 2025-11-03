@@ -24,11 +24,11 @@ const setActiveTab = (tab) => {
     </div>
     <div
       class="tab px-6 py-3.5 cursor-pointer border-b-3 border-transparent transition-all flex items-center gap-2 font-medium text-text-muted hover:text-text hover:bg-white/5"
-      :class="{ 'border-gray-500 text-white bg-gray-800': activeTab === 'terminal' }"
-      @click="setActiveTab('terminal')"
+      :class="{ 'border-gray-500 text-white bg-gray-800': activeTab === 'console' }"
+      @click="setActiveTab('console')"
     >
       <TerminalIcon class="w-4 h-4" />
-      <span>Server Terminal</span>
+      <span>Server Console</span>
     </div>
   </div>
 </template>
