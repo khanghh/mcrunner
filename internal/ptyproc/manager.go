@@ -26,15 +26,13 @@ type Options struct {
 	Rows int // Terminal rows (optional, default: 24)
 
 	Stdout io.Writer // Redirect PTY stdout
-	Stderr io.Writer // Redirect PTY stderr (if separate from stdout)
-	Stdin  io.Reader
+	Stdin  io.Reader // Attach PTY stdin
 }
 
 // NewSession creates and starts a PTY session per the options and stores it by name.
 // If opts.Name is empty, a unique name is generated and returned.
 func (m *PTYManager) NewSession(opts Options) (*PTYSession, error) {
 	if opts.Command == "" {
-		// Allow default to /bin/bash via PTYSession if Command empty by passing ""
 		opts.Command = "/bin/bash"
 	}
 	name := opts.Name
@@ -42,45 +40,24 @@ func (m *PTYManager) NewSession(opts Options) (*PTYSession, error) {
 		name = fmt.Sprintf("sess-%d", time.Now().UnixNano())
 	}
 
-	sess := NewPTYSession(name, opts.Command, opts.Args, opts.Env, opts.Dir, opts.Cols, opts.Rows)
+	sess := NewPTYSession(opts)
 
-	// Ensure map and uniqueness
 	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	if m.sessions == nil {
 		m.sessions = make(map[string]*PTYSession)
 	}
-	if _, exists := m.sessions[name]; exists {
-		m.mu.Unlock()
+
+	if _, exists := m.sessions[name]; !exists {
+		m.sessions[name] = sess
+	} else {
 		return nil, fmt.Errorf("session %q already exists", name)
 	}
-	m.sessions[name] = sess
-	m.mu.Unlock()
 
 	if err := sess.Start(); err != nil {
-		// rollback on failure
-		m.mu.Lock()
 		delete(m.sessions, name)
-		m.mu.Unlock()
 		return nil, err
-	}
-
-	// Optional piping: attach stdout/stdin if provided.
-	if opts.Stdout != nil {
-		if rw, err := sess.PTY(); err == nil {
-			pr, _ := rw.(io.Reader)
-			go func(r io.Reader, w io.Writer) {
-				// io.Copy will exit when PTY closes
-				_, _ = io.Copy(w, r)
-			}(pr, opts.Stdout)
-		}
-	}
-	if opts.Stdin != nil {
-		if rw, err := sess.PTY(); err == nil {
-			pw, _ := rw.(io.Writer)
-			go func(r io.Reader, w io.Writer) {
-				_, _ = io.Copy(w, r)
-			}(opts.Stdin, pw)
-		}
 	}
 
 	return sess, nil
@@ -169,4 +146,18 @@ func (m *PTYManager) Remove(name string) {
 	m.mu.Lock()
 	delete(m.sessions, name)
 	m.mu.Unlock()
+}
+
+func (m *PTYManager) ListSessions() []string {
+	m.mu.RLock()
+	names := make([]string, 0, len(m.sessions))
+	for name := range m.sessions {
+		names = append(names, name)
+	}
+	m.mu.RUnlock()
+	return names
+}
+
+func (m *PTYManager) Attach(name string, writer io.WriteCloser, reader io.ReadCloser) {
+
 }

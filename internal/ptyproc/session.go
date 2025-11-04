@@ -27,15 +27,18 @@ type PTYSession struct {
 	dir     string
 
 	// runtime
-	cmd   *exec.Cmd
-	ptmx  *os.File
-	mu    sync.Mutex
-	alive bool
+	cmd    *exec.Cmd
+	ptmx   *os.File
+	ptmxRW io.ReadWriter
+	mu     sync.Mutex
+	alive  bool
 
-	// buffer for recent output
-	buffer *ringBuffer
+	// io redirection and buffering
+	buffer     *ringBuffer
+	stdoutPipe io.Writer
+	stdinPipe  io.Reader
 
-	// optional: close signaling
+	// close signaling
 	doneOnce sync.Once
 	doneCh   chan struct{}
 }
@@ -50,24 +53,48 @@ func (s *PTYSession) Size() (int, int) {
 
 // NewPTYSession creates a new PTY session configuration. You must call Start.
 // If cmdPath is empty, it defaults to "/bin/bash".
-func NewPTYSession(name string, cmdPath string, args []string, env []string, dir string, cols, rows int) *PTYSession {
+func NewPTYSession(opts Options) *PTYSession {
+	cols := opts.Rows
+	rows := opts.Rows
 	if cols <= 0 {
 		cols = 80
 	}
 	if rows <= 0 {
 		rows = 24
 	}
+
 	return &PTYSession{
-		name:    name,
-		cols:    cols,
-		rows:    rows,
-		cmdPath: cmdPath,
-		cmdArgs: append([]string(nil), args...),
-		env:     append([]string(nil), env...),
-		dir:     dir,
-		buffer:  newRingBuffer(1 << 20), // 1 MiB buffer
-		doneCh:  make(chan struct{}),
+		name:       opts.Name,
+		cols:       cols,
+		rows:       rows,
+		cmdPath:    opts.Command,
+		cmdArgs:    append([]string(nil), opts.Args...),
+		env:        append([]string(nil), opts.Env...),
+		dir:        opts.Dir,
+		buffer:     newRingBuffer(1 << 20), // 1 MiB buffer
+		stdoutPipe: opts.Stdout,
+		stdinPipe:  opts.Stdin,
+		doneCh:     make(chan struct{}),
 	}
+}
+
+type ptmxReadWriter struct {
+	ptmx   io.ReadWriter
+	buffer *ringBuffer
+}
+
+func (rw *ptmxReadWriter) Read(p []byte) (int, error) {
+	buf := make([]byte, len(p))
+	n, err := rw.ptmx.Read(buf)
+	if n > 0 {
+		rw.buffer.Write(buf[:n])
+		copy(p, buf[:n])
+	}
+	return n, err
+}
+
+func (rw *ptmxReadWriter) Write(p []byte) (int, error) {
+	return rw.ptmx.Write(p)
 }
 
 // Start launches the configured command attached to a PTY with initial size.
@@ -91,7 +118,16 @@ func (s *PTYSession) Start() error {
 	}
 	s.cmd = cmd
 	s.ptmx = ptmx
+	s.ptmxRW = &ptmxReadWriter{ptmx: ptmx, buffer: s.buffer}
 	s.alive = true
+
+	if s.stdoutPipe != nil {
+		go func() { _, _ = io.Copy(s.stdoutPipe, s.ptmxRW) }()
+	}
+
+	if s.stdinPipe != nil {
+		go func() { _, _ = io.Copy(s.ptmx, s.stdinPipe) }()
+	}
 
 	// monitor process exit to close doneCh
 	go func() {
@@ -163,7 +199,7 @@ func (s *PTYSession) PTY() (io.ReadWriter, error) {
 	if s.ptmx == nil || !s.alive {
 		return nil, errors.New("pty not started")
 	}
-	return s.ptmx, nil
+	return s.ptmxRW, nil
 }
 
 func (s *PTYSession) Wait() error {
@@ -192,4 +228,12 @@ func (s *PTYSession) closePTY() {
 	if pt != nil {
 		_ = pt.Close()
 	}
+}
+
+func (s *PTYSession) Buffer() []byte {
+	return s.buffer.Snapshot()
+}
+
+func (s *PTYSession) Attach(stdin io.Reader, stdout io.Writer) {
+
 }
