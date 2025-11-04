@@ -3,6 +3,8 @@ package websocket
 import (
 	"context"
 	"sync"
+
+	"google.golang.org/protobuf/proto"
 )
 
 // HandlerFunc defines the function signature for a message handler.
@@ -25,6 +27,20 @@ func (c *Ctx) Client() *Client {
 
 func (c *Ctx) SendError(msg string) error {
 	c.server.sendError(c.client, msg)
+	return nil
+}
+
+func (c *Ctx) SendMessage(msg *Message) error {
+	data, err := proto.Marshal(msg)
+	if err != nil {
+		return err
+	}
+	return c.client.Send(data)
+}
+
+func (c *Ctx) Disconnect(msg string) error {
+	c.server.sendError(c.client, msg)
+	c.client.Close()
 	return nil
 }
 

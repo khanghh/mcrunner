@@ -10,4 +10,5 @@ const (
 	ServerRunnerOutputBufferSize = 1024
 	ServerRunnerErrorBufferSize  = 1024
 	TTYBufferSize                = 4096
+	WSClientQueueSize            = 64
 )

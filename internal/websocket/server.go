@@ -157,7 +157,7 @@ func (s *Server) getOrCreateTopic(topicName string) *Topic {
 	}
 
 	s.topics[topicName] = &Topic{
-		id:   topicName,
+		name: topicName,
 		subs: make(map[*Client]struct{}),
 	}
 	return s.topics[topicName]

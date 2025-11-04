@@ -83,3 +83,15 @@ func (c *Client) Close() {
 		close(c.closed)
 	}
 }
+
+func (c *Client) Write(p []byte) (n int, err error) {
+	if !c.IsAlive() {
+		return 0, ErrClientDisconnected
+	}
+	select {
+	case c.out <- p:
+		return len(p), nil
+	case <-c.closed:
+		return 0, ErrClientDisconnected
+	}
+}

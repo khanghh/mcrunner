@@ -3,7 +3,7 @@ package websocket
 import "sync"
 
 type Topic struct {
-	id     string
+	name   string
 	subs   map[*Client]struct{}
 	subsMu sync.RWMutex
 }
