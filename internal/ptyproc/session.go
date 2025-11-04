@@ -34,13 +34,14 @@ type PTYSession struct {
 	alive  bool
 
 	// io redirection and buffering
-	buffer     *ringBuffer
-	stdoutPipe io.Writer
-	stdinPipe  io.Reader
+	buffer      *ringBuffer
+	stdoutPipe  io.Writer
+	stdinPipe   io.Reader
+	stdoutPipes map[io.Writer]chan error
 
 	// close signaling
 	doneOnce sync.Once
-	doneCh   chan struct{}
+	done     chan struct{}
 }
 
 func (s *PTYSession) Name() string {
@@ -63,18 +64,24 @@ func NewPTYSession(opts Options) *PTYSession {
 		rows = 24
 	}
 
+	stdoutPipes := make(map[io.Writer]chan error)
+	if opts.Stdout != nil {
+		stdoutPipes[opts.Stdout] = make(chan error)
+	}
+
 	return &PTYSession{
-		name:       opts.Name,
-		cols:       cols,
-		rows:       rows,
-		cmdPath:    opts.Command,
-		cmdArgs:    append([]string(nil), opts.Args...),
-		env:        append([]string(nil), opts.Env...),
-		dir:        opts.Dir,
-		buffer:     newRingBuffer(1 << 20), // 1 MiB buffer
-		stdoutPipe: opts.Stdout,
-		stdinPipe:  opts.Stdin,
-		doneCh:     make(chan struct{}),
+		name:        opts.Name,
+		cols:        cols,
+		rows:        rows,
+		cmdPath:     opts.Command,
+		cmdArgs:     append([]string(nil), opts.Args...),
+		env:         append([]string(nil), opts.Env...),
+		dir:         opts.Dir,
+		buffer:      newRingBuffer(1 << 20), // 1 MiB buffer
+		stdoutPipe:  opts.Stdout,
+		stdinPipe:   opts.Stdin,
+		stdoutPipes: stdoutPipes,
+		done:        make(chan struct{}),
 	}
 }
 
@@ -95,6 +102,36 @@ func (rw *ptmxReadWriter) Read(p []byte) (int, error) {
 
 func (rw *ptmxReadWriter) Write(p []byte) (int, error) {
 	return rw.ptmx.Write(p)
+}
+
+func (s *PTYSession) pipeOutput() {
+	buf := make([]byte, 4096)
+
+	pipeAll := func(data []byte) {
+		s.mu.Lock()
+		for w, errCh := range s.stdoutPipes {
+			_, err := w.Write(data)
+			if err != nil {
+				select {
+				case errCh <- err:
+				default:
+				}
+				delete(s.stdoutPipes, w)
+			}
+		}
+		s.mu.Unlock()
+	}
+
+	for {
+		n, err := s.ptmx.Read(buf)
+		if n > 0 {
+			s.buffer.Write(buf[:n])
+			pipeAll(buf[:n])
+		}
+		if err != nil {
+			break
+		}
+	}
 }
 
 // Start launches the configured command attached to a PTY with initial size.
@@ -121,9 +158,7 @@ func (s *PTYSession) Start() error {
 	s.ptmxRW = &ptmxReadWriter{ptmx: ptmx, buffer: s.buffer}
 	s.alive = true
 
-	if s.stdoutPipe != nil {
-		go func() { _, _ = io.Copy(s.stdoutPipe, s.ptmxRW) }()
-	}
+	go s.pipeOutput()
 
 	if s.stdinPipe != nil {
 		go func() { _, _ = io.Copy(s.ptmx, s.stdinPipe) }()
@@ -137,7 +172,7 @@ func (s *PTYSession) Start() error {
 		s.alive = false
 		s.mu.Unlock()
 		s.closePTY()
-		s.doneOnce.Do(func() { close(s.doneCh) })
+		s.doneOnce.Do(func() { close(s.done) })
 	}()
 	return nil
 }
@@ -164,7 +199,7 @@ func (s *PTYSession) Stop() error {
 
 	// wait with timeout, but do not force kill
 	select {
-	case <-s.doneCh:
+	case <-s.done:
 		return nil
 	case <-time.After(1 * time.Minute):
 		return errors.New("timeout waiting for process to exit")
@@ -203,7 +238,7 @@ func (s *PTYSession) PTY() (io.ReadWriter, error) {
 }
 
 func (s *PTYSession) Wait() error {
-	<-s.doneCh
+	<-s.done
 	return nil
 }
 
@@ -234,6 +269,21 @@ func (s *PTYSession) Buffer() []byte {
 	return s.buffer.Snapshot()
 }
 
-func (s *PTYSession) Attach(stdin io.Reader, stdout io.Writer) {
+func (s *PTYSession) Attach(stdin io.Reader, stdout io.Writer) error {
+	if stdout == nil {
+		return errors.New("must provide stdout")
+	}
 
+	// send existing buffer content first
+	if _, err := stdout.Write(s.buffer.Snapshot()); err != nil {
+		return err
+	}
+
+	// create pipe to capture PTY output
+	errCh := make(chan error)
+	s.mu.Lock()
+	s.stdoutPipes[stdout] = errCh
+	s.mu.Unlock()
+
+	return <-errCh
 }

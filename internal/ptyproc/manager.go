@@ -157,7 +157,3 @@ func (m *PTYManager) ListSessions() []string {
 	m.mu.RUnlock()
 	return names
 }
-
-func (m *PTYManager) Attach(name string, writer io.WriteCloser, reader io.ReadCloser) {
-
-}

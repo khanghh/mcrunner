@@ -18,38 +18,37 @@ func newRingBuffer(capacity int) *ringBuffer {
 	return &ringBuffer{buf: make([]byte, capacity), cap: capacity}
 }
 
-func (r *ringBuffer) Write(p []byte) {
-	if len(p) == 0 {
-		return
+func (r *ringBuffer) Write(p []byte) (int, error) {
+	n := len(p)
+	if n == 0 {
+		return 0, nil
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if len(p) >= r.cap {
-		copy(r.buf, p[len(p)-r.cap:])
+
+	if n >= r.cap {
+		copy(r.buf, p[n-r.cap:])
 		r.start = 0
 		r.size = r.cap
-		return
+		return n, nil
 	}
-	needDrop := r.size + len(p) - r.cap
-	if needDrop > 0 {
-		r.start = (r.start + needDrop) % r.cap
-		r.size -= needDrop
-		if r.size < 0 {
-			r.size = 0
-		}
+
+	if r.size+n > r.cap {
+		over := r.size + n - r.cap
+		r.start = (r.start + over) % r.cap
+		r.size -= over
 	}
+
 	widx := (r.start + r.size) % r.cap
 	tail := r.cap - widx
-	if len(p) <= tail {
+	if n <= tail {
 		copy(r.buf[widx:], p)
 	} else {
 		copy(r.buf[widx:], p[:tail])
 		copy(r.buf[0:], p[tail:])
 	}
-	r.size += len(p)
-	if r.size > r.cap {
-		r.size = r.cap
-	}
+	r.size += n
+	return n, nil
 }
 
 func (r *ringBuffer) Snapshot() []byte {
