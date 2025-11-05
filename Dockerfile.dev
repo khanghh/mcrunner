@@ -8,7 +8,8 @@ RUN apt-get update && apt-get install -y \
   coreutils \
   ncurses-term \
   vim \
-  default-jre
+  default-jre \
+  protobuf-compiler
 
 # Set terminal color support
 ENV TERM=xterm-256color
