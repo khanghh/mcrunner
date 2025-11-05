@@ -266,3 +266,12 @@ func (s *PTYSession) Attach(stdin io.Reader, stdout io.Writer) error {
 
 	return <-errCh
 }
+
+func (s *PTYSession) Signal(sig os.Signal) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.alive || s.cmd == nil || s.cmd.Process == nil {
+		return errors.New("process not running")
+	}
+	return s.cmd.Process.Signal(sig)
+}
