@@ -53,7 +53,7 @@ func RunMCServer(ptyManager *ptyproc.PTYManager, serverDir string, serverCmd str
 		Command: serverCmd,
 		Dir:     serverDir,
 		Stdout:  os.Stdout,
-		Stderr:  os.Stderr,
+		Stdin:   os.Stdin,
 	}
 	proc, err := ptyManager.NewSession(opts)
 	if err != nil {

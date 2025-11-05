@@ -6,8 +6,10 @@ require (
 	github.com/creack/pty v1.1.24
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/gofiber/websocket/v2 v2.2.1
+	github.com/gorilla/websocket v1.5.3
 	github.com/spf13/viper v1.21.0
 	github.com/urfave/cli/v2 v2.27.7
+	google.golang.org/protobuf v1.36.10
 )
 
 require (

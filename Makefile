@@ -9,10 +9,15 @@ LDFLAGS=-ldflags "-w -s -X 'main.gitCommit=$(COMMIT)' -X 'main.gitDate=$(DATE)' 
 
 mcrunner:
 	@echo "Building target: $@" 
-	go build $(LDFLAGS) -o $(BUILD_DIR)/$@ $(CURDIR)/main.go
+	go build $(LDFLAGS) -o $(BUILD_DIR)/$@ $(CURDIR)/cmd/$@
+	@echo "Done building."
+
+manager:
+	@echo "Building target: $@" 
+	go build $(LDFLAGS) -o $(BUILD_DIR)/$@ $(CURDIR)/cmd/$@
 	@echo "Done building."
 
 clean:
 	@rm -rf $(BUILD_DIR)/*
 
-all: mcrunner
+all: mcrunner manager

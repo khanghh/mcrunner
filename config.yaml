@@ -1,7 +1,0 @@
-debug: false
-rootDir: "/workdir/docs"
-staticDir: "./web/dist"
-consoleBufferSize: 1024
-listenAddr: ":3000"
-javaArgs: "-Xmx2G -Xms1G"
-serverJar: "server.jar"
