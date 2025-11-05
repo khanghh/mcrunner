@@ -27,11 +27,10 @@ type PTYSession struct {
 	dir     string
 
 	// runtime
-	cmd    *exec.Cmd
-	ptmx   *os.File
-	ptmxRW io.ReadWriter
-	mu     sync.Mutex
-	alive  bool
+	cmd   *exec.Cmd
+	ptmx  *os.File
+	mu    sync.Mutex
+	alive bool
 
 	// io redirection and buffering
 	buffer      *ringBuffer
@@ -85,25 +84,6 @@ func NewPTYSession(opts Options) *PTYSession {
 	}
 }
 
-type ptmxReadWriter struct {
-	ptmx   io.ReadWriter
-	buffer *ringBuffer
-}
-
-func (rw *ptmxReadWriter) Read(p []byte) (int, error) {
-	buf := make([]byte, len(p))
-	n, err := rw.ptmx.Read(buf)
-	if n > 0 {
-		rw.buffer.Write(buf[:n])
-		copy(p, buf[:n])
-	}
-	return n, err
-}
-
-func (rw *ptmxReadWriter) Write(p []byte) (int, error) {
-	return rw.ptmx.Write(p)
-}
-
 func (s *PTYSession) pipeOutput() {
 	buf := make([]byte, 4096)
 
@@ -155,7 +135,6 @@ func (s *PTYSession) Start() error {
 	}
 	s.cmd = cmd
 	s.ptmx = ptmx
-	s.ptmxRW = &ptmxReadWriter{ptmx: ptmx, buffer: s.buffer}
 	s.alive = true
 
 	go s.pipeOutput()
@@ -234,7 +213,7 @@ func (s *PTYSession) PTY() (io.ReadWriter, error) {
 	if s.ptmx == nil || !s.alive {
 		return nil, errors.New("pty not started")
 	}
-	return s.ptmxRW, nil
+	return s.ptmx, nil
 }
 
 func (s *PTYSession) Wait() error {
