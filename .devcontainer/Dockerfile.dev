@@ -33,7 +33,7 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 
 RUN mkdir -p ${GOPATH}/src ${GOPATH}/bin
 
-# USER node
+USER node
 
 WORKDIR /workdir
 

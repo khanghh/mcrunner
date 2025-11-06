@@ -1,11 +1,11 @@
 .DEFAULT_GOAL := mcrunner
 
 BUILD_DIR=$(CURDIR)/build/bin
-COMMIT=$(shell git rev-parse HEAD)
-DATE=$(shell git show -s --format=%cI HEAD)
-TAG=$(shell git describe --tags --always --dirty)
+GIT_COMMIT=$(shell git rev-parse HEAD)
+GIT_DATE=$(shell git show -s --format=%cI HEAD)
+GIT_TAG=$(shell git describe --tags --always --dirty)
 
-LDFLAGS=-ldflags "-w -s -X 'main.gitCommit=$(COMMIT)' -X 'main.gitDate=$(DATE)' -X 'main.gitTag=$(TAG)'"
+LDFLAGS=-ldflags "-w -s -X 'main.gitCommit=$(GIT_COMMIT)' -X 'main.gitDate=$(GIT_DATE)' -X 'main.gitTag=$(GIT_TAG)'"
 
 mcrunner:
 	@echo "Building target: $@" 
@@ -15,6 +15,26 @@ mcrunner:
 manager:
 	@echo "Building target: $@" 
 	go build $(LDFLAGS) -o $(BUILD_DIR)/$@ $(CURDIR)/cmd/$@
+	@echo "Done building."
+
+docker-mcrunner:
+	@echo "Building Docker image: mcrunner:latest" 
+	docker build --rm --progress=plain \
+		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
+		--build-arg GIT_DATE=$(GIT_DATE) \
+		--build-arg GIT_TAG=$(GIT_TAG) \
+		-t mcrunner:latest \
+		-f docker/mcrunner/Dockerfile .
+	@echo "Done building."
+
+docker-manager:
+	@echo "Building Docker image: mcrunner-web:latest" 
+	docker build --rm --progress=plain \
+		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
+		--build-arg GIT_DATE=$(GIT_DATE) \
+		--build-arg GIT_TAG=$(GIT_TAG) \
+		-t mcrunner-web:latest \
+		-f docker/manager/Dockerfile .
 	@echo "Done building."
 
 clean:
