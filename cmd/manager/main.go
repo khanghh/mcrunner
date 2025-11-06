@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	api "github.com/khanghh/mcrunner/internal/api/v1"
@@ -27,12 +28,12 @@ var (
 	rootDir = &cli.StringFlag{
 		Name:    "rootdir",
 		Aliases: []string{"d"},
-		Usage:   "Minecraft server root directory to serve web editor files from",
+		Usage:   "Root directory to serve web editor files from",
 	}
 	staticDir = &cli.StringFlag{
 		Name:    "staticdir",
 		Aliases: []string{"s"},
-		Usage:   "static folder to serve web assets",
+		Usage:   "Static folder to serve web assets",
 		Value:   "./dist",
 	}
 	listenFlag = &cli.StringFlag{
@@ -75,15 +76,41 @@ func printVersion(cli *cli.Context) error {
 	return nil
 }
 
+func mustResolveRootDir(rootDir string) string {
+	absPath, err := filepath.Abs(rootDir)
+	if err != nil {
+		panic("failed to resolve absolute path: " + err.Error())
+	}
+
+	resolved, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		panic("failed to resolve symlinks: " + err.Error())
+	}
+
+	info, err := os.Stat(resolved)
+	if err != nil {
+		if os.IsNotExist(err) {
+			panic("rootdir does not exist")
+		}
+		panic("failed to stat rootdir: " + err.Error())
+	}
+
+	if !info.IsDir() {
+		panic("rootdir must be a directory")
+	}
+
+	return resolved
+}
+
 func run(cli *cli.Context) error {
+	staticDir := cli.String(staticDir.Name)
+	listenAddr := cli.String(listenFlag.Name)
 	rootDir := cli.String(rootDir.Name)
 	if rootDir == "" {
 		return fmt.Errorf("root directory must not be empty")
 	}
-	staticDir := cli.String(staticDir.Name)
-	listenAddr := cli.String(listenFlag.Name)
-
-	lfs := core.NewLocalFileService(rootDir)
+	absRootDir := mustResolveRootDir(rootDir)
+	lfs := core.NewLocalFileService(absRootDir)
 
 	router := fiber.New(fiber.Config{
 		CaseSensitive: true,
@@ -92,7 +119,9 @@ func run(cli *cli.Context) error {
 		ReadTimeout:   params.ServerReadTimeout,
 		WriteTimeout:  params.ServerWriteTimeout,
 	})
-	router.Use(logger.New())
+	router.Use(logger.New(logger.Config{
+		Format: "${time} | ${status} | ${latency} | ${ip} | ${method} | ${path} ${queryParams} | ${error}\n",
+	}))
 	router.Static("/", staticDir)
 	if err := api.SetupRoutes(router.Group("/api"), lfs); err != nil {
 		slog.Error("Failed to setup routes", "error", err)
