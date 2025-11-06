@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/khanghh/mcrunner/internal/core"
 	"github.com/khanghh/mcrunner/internal/params"
-	"github.com/khanghh/mcrunner/internal/ptyproc"
 	"github.com/urfave/cli/v2"
 )
 
@@ -65,24 +66,24 @@ func printVersion(cli *cli.Context) error {
 }
 
 func run(cli *cli.Context) error {
-	serverCmd := cli.String("command")
+	serverCmd := cli.String(commandFlag.Name)
 	if serverCmd == "" {
 		return fmt.Errorf("server command must not be empty")
 	}
 
-	rootDir := cli.String("rootdir")
-	listenAddr := cli.String("listen")
+	rootDir := cli.String(rootDirFlag.Name)
+	listenAddr := cli.String(listenFlag.Name)
 
-	mcserver := ptyproc.NewPTYSession(ptyproc.Options{
-		Name:    "mcserver",
-		Command: serverCmd,
-		Dir:     rootDir,
-		Stdout:  os.Stdout,
-		Cols:    80,
-		Rows:    24,
-	})
-	if err := mcserver.Start(); err != nil {
-		panic(err)
+	unixSockPath := "/tmp/mcrunner.sock"
+	unixLogWriter, err := core.NewUnixLogWriter(unixSockPath)
+	if err != nil {
+		return err
+	}
+
+	stdoutWriter := io.MultiWriter(os.Stdout, unixLogWriter)
+	mcserver, err := core.RunMinecraftServer(serverCmd, []string{}, rootDir, stdoutWriter)
+	if err != nil {
+		return err
 	}
 
 	// serve http server in background
