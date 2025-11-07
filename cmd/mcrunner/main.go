@@ -36,6 +36,12 @@ var (
 		Usage:   "HTTP server listen address",
 		Value:   ":3000",
 	}
+	outFifoFlag = &cli.StringFlag{
+		Name:    "outfifo",
+		Aliases: []string{"o"},
+		Usage:   "Path to output FIFO pipe",
+		Value:   "/tmp/mcrunner.fifo",
+	}
 )
 
 func init() {
@@ -46,6 +52,7 @@ func init() {
 	app.Flags = []cli.Flag{
 		commandFlag,
 		rootDirFlag,
+		outFifoFlag,
 		listenFlag,
 	}
 	app.Commands = []*cli.Command{
@@ -74,13 +81,13 @@ func run(cli *cli.Context) error {
 	rootDir := cli.String(rootDirFlag.Name)
 	listenAddr := cli.String(listenFlag.Name)
 
-	unixSockPath := "/tmp/mcrunner.sock"
-	unixLogWriter, err := core.NewUnixLogWriter(unixSockPath)
+	outFifoPath := cli.String(outFifoFlag.Name)
+	fifoWriter, err := core.NewFifoWriter(outFifoPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("faild to open output fifo %s: %v", outFifoPath, err)
 	}
 
-	stdoutWriter := io.MultiWriter(os.Stdout, unixLogWriter)
+	stdoutWriter := io.MultiWriter(os.Stdout, fifoWriter)
 	mcserver, err := core.RunMinecraftServer(serverCmd, []string{}, rootDir, stdoutWriter)
 	if err != nil {
 		return err
