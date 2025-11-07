@@ -59,20 +59,17 @@ func getServerStatusHandler(mcserver *core.MCServerCmd) fiber.Handler {
 }
 
 func streamLogsHandler(mcserver *core.MCServerCmd) fiber.Handler {
-	return fiberws.New(func(c *fiberws.Conn) {
-		outCh := make(chan []byte, 128)
-		go mcserver.StreamOutput(func(dataCh <-chan []byte) {
-			defer close(outCh)
-			for data := range dataCh {
-				select {
-				case outCh <- data:
-				default:
+	return fiberws.New(func(conn *fiberws.Conn) {
+		stream := mcserver.OutputStream()
+		buf := make([]byte, 1024)
+		for {
+			n, err := stream.Read(buf)
+			if n > 0 {
+				err := conn.WriteMessage(fiberws.BinaryMessage, buf[:n])
+				if err != nil {
 					return
 				}
 			}
-		})
-		for data := range outCh {
-			err := c.WriteMessage(fiberws.TextMessage, data)
 			if err != nil {
 				return
 			}

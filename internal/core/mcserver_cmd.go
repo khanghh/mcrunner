@@ -14,11 +14,11 @@ type MCServerCmd struct {
 	args []string
 
 	// runtime
-	cmd    *exec.Cmd
-	stdout io.Writer
+	cmd *exec.Cmd
 
 	// stdin writer to send commands
 	stdinPipe io.WriteCloser
+	stream    *OutputStream
 
 	mu   sync.Mutex
 	done chan struct{}
@@ -70,12 +70,16 @@ func (m *MCServerCmd) Kill() error {
 	return m.cmd.Process.Kill()
 }
 
+func (m *MCServerCmd) OutputStream() io.Reader {
+	return m.stream
+}
+
 // RunMinecraftServer starts a Minecraft server process with the given command and arguments.
 func RunMinecraftServer(cmdPath string, cmdArgs []string, runDir string, stdout io.Writer) (*MCServerCmd, error) {
 	m := &MCServerCmd{
 		path:   cmdPath,
 		args:   cmdArgs,
-		stdout: stdout,
+		stream: NewOutputStream(10),
 		done:   make(chan struct{}),
 	}
 	cmd := exec.Command(m.path, m.args...)
@@ -87,8 +91,14 @@ func RunMinecraftServer(cmdPath string, cmdArgs []string, runDir string, stdout 
 	if err != nil {
 		return nil, err
 	}
-	cmd.Stdout = m.stdout
-	cmd.Stderr = m.stdout
+
+	var stdoutWriter io.Writer = m.stream
+	if stdout != nil {
+		stdoutWriter = io.MultiWriter(m.stream, stdout)
+	}
+
+	cmd.Stdout = stdoutWriter
+	cmd.Stderr = stdoutWriter
 
 	if err := cmd.Start(); err != nil {
 		_ = stdinPipe.Close()
@@ -97,12 +107,12 @@ func RunMinecraftServer(cmdPath string, cmdArgs []string, runDir string, stdout 
 
 	m.cmd = cmd
 	m.stdinPipe = stdinPipe
-	m.done = make(chan struct{})
 
 	go func() {
 		mErr := cmd.Wait()
 		m.mu.Lock()
 		m.err = mErr
+		m.stream.Close()
 		close(m.done)
 		m.mu.Unlock()
 	}()
