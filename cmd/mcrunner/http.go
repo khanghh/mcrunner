@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/gofiber/fiber/v2"
+	fiberws "github.com/gofiber/websocket/v2"
 	"github.com/khanghh/mcrunner/internal/core"
 )
 
@@ -57,14 +58,42 @@ func getServerStatusHandler(mcserver *core.MCServerCmd) fiber.Handler {
 	}
 }
 
+func streamLogsHandler(mcserver *core.MCServerCmd) fiber.Handler {
+	return fiberws.New(func(c *fiberws.Conn) {
+		outCh := make(chan []byte, 128)
+		go mcserver.StreamOutput(func(dataCh <-chan []byte) {
+			defer close(outCh)
+			for data := range dataCh {
+				select {
+				case outCh <- data:
+				default:
+					return
+				}
+			}
+		})
+		for data := range outCh {
+			err := c.WriteMessage(fiberws.TextMessage, data)
+			if err != nil {
+				return
+			}
+		}
+	})
+}
+
 func serveHttp(listenAddr string, mcserver *core.MCServerCmd) {
+	wsUpgradeRequired := func(ctx *fiber.Ctx) error {
+		if !fiberws.IsWebSocketUpgrade(ctx) {
+			return fiber.ErrUpgradeRequired
+		}
+		return ctx.Next()
+	}
 	app := fiber.New(fiber.Config{
 		DisableStartupMessage: true,
 	})
-	apiGroup := app.Group("/api")
-	apiGroup.Get("/mc/status", getServerStatusHandler(mcserver))
-	apiGroup.Post("/mc/command", postCommandHandler(mcserver))
-	apiGroup.Post("/mc/stop", postStopServerHandler(mcserver))
-	apiGroup.Post("/mc/kill", postKillServerHandler(mcserver))
+	app.Get("/status", getServerStatusHandler(mcserver))
+	app.Post("/command", postCommandHandler(mcserver))
+	app.Post("/stop", postStopServerHandler(mcserver))
+	app.Post("/kill", postKillServerHandler(mcserver))
+	app.Get("/logs/stream", wsUpgradeRequired, streamLogsHandler(mcserver))
 	app.Listen(listenAddr)
 }
