@@ -1,71 +1,91 @@
 package handlers
 
 import (
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/khanghh/mcrunner/internal/core"
 )
 
 type MCRunnerHandler struct {
 	mcserver *core.MCServerCmd
-	*mcrunnerWSHandler
+	*mcrunnerWS
 }
 
 func (h *MCRunnerHandler) PostCommand(ctx *fiber.Ctx) error {
-	type CommandRequest struct {
-		Command string `json:"command"`
-	}
 	var req CommandRequest
 	if err := ctx.BodyParser(&req); err != nil {
-		return ctx.SendStatus(fiber.StatusBadRequest)
+		return BadRequestError("invalid request payload")
 	}
 	if req.Command == "" {
-		return ctx.SendStatus(fiber.StatusBadRequest)
+		return BadRequestError("missing command")
 	}
-
 	if err := h.mcserver.SendCommand(req.Command); err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return InternalServerError(err)
 	}
-	return nil
+	return ctx.SendStatus(fiber.StatusOK)
 }
 
 func (h *MCRunnerHandler) PostStartServer(ctx *fiber.Ctx) error {
+	if h.mcserver.GetStatus() == core.StatusRunning {
+		return ErrServerAlreadyRunning
+	}
 	if err := h.mcserver.Start(); err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return InternalServerError(err)
 	}
 	return ctx.SendStatus(fiber.StatusOK)
 }
 
 func (h *MCRunnerHandler) PostStopServer(ctx *fiber.Ctx) error {
+	if h.mcserver.GetStatus() != core.StatusRunning {
+		return ErrServerNotRunning
+	}
 	if err := h.mcserver.Stop(); err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return InternalServerError(err)
 	}
 	return ctx.SendStatus(fiber.StatusOK)
 }
 
 func (h *MCRunnerHandler) PostKillServer(ctx *fiber.Ctx) error {
+	if h.mcserver.GetStatus() != core.StatusRunning {
+		return ErrServerNotRunning
+	}
 	if err := h.mcserver.Kill(); err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return InternalServerError(err)
 	}
 	return ctx.SendStatus(fiber.StatusOK)
 }
 
 func (h *MCRunnerHandler) GetStatus(ctx *fiber.Ctx) error {
-	return ctx.JSON(fiber.Map{
-		"status": "running",
+	status := h.mcserver.GetStatus()
+	startTime := h.mcserver.GetStartTime()
+
+	var pid int
+	var uptime *time.Duration
+
+	if status == core.StatusRunning && h.mcserver.GetProcess() != nil {
+		pid = h.mcserver.GetProcess().Pid
+		if startTime != nil {
+			uptimeDuration := time.Since(*startTime)
+			uptime = &uptimeDuration
+		}
+	}
+
+	response := StatusResponse{
+		Status:    ServerStatus(status),
+		PID:       pid,
+		Uptime:    uptime,
+		StartTime: startTime,
+	}
+
+	return ctx.JSON(APIResponse{
+		Data: response,
 	})
 }
 
 func NewMCRunnerHandler(mcserver *core.MCServerCmd) *MCRunnerHandler {
 	return &MCRunnerHandler{
-		mcserver:          mcserver,
-		mcrunnerWSHandler: &mcrunnerWSHandler{mcserver: mcserver},
+		mcserver:   mcserver,
+		mcrunnerWS: &mcrunnerWS{mcserver: mcserver},
 	}
 }

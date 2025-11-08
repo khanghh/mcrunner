@@ -4,8 +4,19 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"syscall"
+	"time"
+)
+
+// ServerStatus represents the current server status
+type ServerStatus string
+
+const (
+	StatusRunning  ServerStatus = "running"
+	StatusStopping ServerStatus = "stopping"
+	StatusStopped  ServerStatus = "stopped"
 )
 
 type MCServerCmd struct {
@@ -22,9 +33,11 @@ type MCServerCmd struct {
 	stdinPipe io.WriteCloser
 	stream    *OutputStream
 
-	mu   sync.Mutex
-	done chan struct{}
-	err  error
+	mu        sync.Mutex
+	done      chan struct{}
+	err       error
+	startTime *time.Time
+	status    ServerStatus
 }
 
 // NewMCServerCmd creates a new MCServerCmd instance with proper initialization.
@@ -36,23 +49,29 @@ func NewMCServerCmd(cmdPath string, cmdArgs []string, runDir string, stdout io.W
 		stdout:  stdout,
 		stream:  NewOutputStream(10),
 		done:    make(chan struct{}),
+		status:  StatusStopped,
 	}
 }
 
 // SendCommand writes a command to the server stdin. A newline is appended
 // if the provided command doesn't already end with one.
 func (m *MCServerCmd) SendCommand(cmd string) error {
+	if !strings.HasSuffix(cmd, "\n") {
+		cmd += "\n"
+	}
+	_, err := m.Write([]byte(cmd))
+	return err
+}
+
+// Write writes data to the server command's stdin.
+func (m *MCServerCmd) Write(data []byte) (int, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.stdinPipe == nil {
-		return os.ErrInvalid
+		return 0, os.ErrInvalid
 	}
-	// ensure newline
-	if len(cmd) == 0 || cmd[len(cmd)-1] != '\n' {
-		cmd = cmd + "\n"
-	}
-	_, err := m.stdinPipe.Write([]byte(cmd))
-	return err
+	m.stream.Write(data)
+	return m.stdinPipe.Write(data)
 }
 
 // Wait blocks until the Minecraft server process exits.
@@ -66,6 +85,9 @@ func (m *MCServerCmd) Stop() error {
 	if err := m.Signal(syscall.SIGTERM); err != nil {
 		return err
 	}
+	m.mu.Lock()
+	m.status = StatusStopping
+	m.mu.Unlock()
 	return m.Wait()
 }
 
@@ -89,6 +111,30 @@ func (m *MCServerCmd) Kill() error {
 
 func (m *MCServerCmd) OutputStream() io.Reader {
 	return m.stream
+}
+
+// GetStatus returns the current server status
+func (m *MCServerCmd) GetStatus() ServerStatus {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.status
+}
+
+// GetProcess returns the underlying process
+func (m *MCServerCmd) GetProcess() *os.Process {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.cmd == nil {
+		return nil
+	}
+	return m.cmd.Process
+}
+
+// GetStartTime returns the server start time
+func (m *MCServerCmd) GetStartTime() *time.Time {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.startTime
 }
 
 // Start starts a Minecraft server process using the configured command and arguments.
@@ -121,12 +167,16 @@ func (m *MCServerCmd) Start() error {
 
 	m.cmd = cmd
 	m.stdinPipe = stdinPipe
+	m.status = StatusRunning
+	now := time.Now()
+	m.startTime = &now
+	m.done = make(chan struct{})
 
 	go func() {
 		mErr := cmd.Wait()
 		m.mu.Lock()
 		m.err = mErr
-		m.stream.Close()
+		m.status = StatusStopped
 		close(m.done)
 		m.mu.Unlock()
 	}()

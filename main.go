@@ -93,7 +93,11 @@ func run(cli *cli.Context) error {
 	// handlers
 	mcrunnerHandler := handlers.NewMCRunnerHandler(mcserverCmd)
 
-	router := fiber.New(fiber.Config{DisableStartupMessage: true})
+	router := fiber.New(fiber.Config{
+		DisableStartupMessage: true,
+		ErrorHandler:          handlers.ErrorHandler,
+	})
+
 	router.Get("/status", mcrunnerHandler.GetStatus)
 	router.Post("/command", mcrunnerHandler.PostCommand)
 	router.Post("/start", mcrunnerHandler.PostStartServer)
@@ -105,12 +109,18 @@ func run(cli *cli.Context) error {
 	if err := mcserverCmd.Start(); err != nil {
 		return fmt.Errorf("failed to start Minecraft server command: %v", err)
 	}
-	sigCh := make(chan os.Signal, 1)
+
+	// Handle signals: first triggers graceful shutdown, second forces exit
+	sigCh := make(chan os.Signal, 2)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigCh
-		mcserverCmd.Stop()
-		router.Shutdown()
+		go func() {
+			_ = mcserverCmd.Stop()
+			_ = router.Shutdown()
+		}()
+		<-sigCh
+		os.Exit(1)
 	}()
 
 	return router.Listen(listenAddr)

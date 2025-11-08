@@ -2,11 +2,9 @@ package core
 
 import (
 	"io"
-	"sync"
 )
 
 type OutputStream struct {
-	mu      sync.Mutex
 	pr      *io.PipeReader
 	pw      *io.PipeWriter
 	done    chan struct{}
