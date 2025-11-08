@@ -1,10 +1,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	fiberws "github.com/gofiber/websocket/v2"
@@ -32,6 +35,11 @@ var (
 		Aliases: []string{"dir", "d"},
 		Usage:   "Minecraft server root directory",
 	}
+	inputFifoFlag = &cli.StringFlag{
+		Name:    "fifo",
+		Aliases: []string{"f"},
+		Usage:   "Path to input FIFO file for sending commands to the Minecraft server",
+	}
 	listenFlag = &cli.StringFlag{
 		Name:    "listen",
 		Aliases: []string{"l"},
@@ -48,6 +56,7 @@ func init() {
 	app.Flags = []cli.Flag{
 		commandFlag,
 		rootDirFlag,
+		inputFifoFlag,
 		listenFlag,
 	}
 	app.Commands = []*cli.Command{
@@ -67,6 +76,51 @@ func printVersion(cli *cli.Context) error {
 	return nil
 }
 
+func ensureFifoExist(fifoPath string) error {
+	if _, statErr := os.Stat(fifoPath); errors.Is(statErr, os.ErrNotExist) {
+		if mkErr := syscall.Mkfifo(fifoPath, 0666); mkErr != nil && !os.IsExist(mkErr) {
+			return fmt.Errorf("mkfifo %s: %v", fifoPath, mkErr)
+		}
+	} else if statErr != nil {
+		return fmt.Errorf("stat %s: %v", fifoPath, statErr)
+	}
+	return nil
+}
+
+func fifoInputLoop(mcserverCmd *core.MCServerCmd, fifoPath string) {
+	if err := ensureFifoExist(fifoPath); err != nil {
+		panic(err)
+	}
+	for {
+		// Attempt to open FIFO for reading (will block until a writer opens it if it exists)
+		fifoFile, err := os.OpenFile(fifoPath, os.O_RDONLY, 0600)
+		if err != nil {
+			if os.IsNotExist(err) {
+				ensureFifoExist(fifoPath)
+			}
+			time.Sleep(time.Second)
+			continue
+		}
+
+		buf := make([]byte, 4096)
+		for {
+			n, readErr := fifoFile.Read(buf)
+			if n > 0 && mcserverCmd.GetStatus() == core.StatusRunning {
+				if _, wErr := mcserverCmd.Write(buf[:n]); wErr != nil {
+					fmt.Fprintf(os.Stderr, "write stdin failed: %v\n", wErr)
+				}
+			}
+			if readErr != nil {
+				if readErr != io.EOF {
+					fmt.Fprintf(os.Stderr, "read fifo error: %v\n", readErr)
+				}
+				break
+			}
+		}
+		fifoFile.Close()
+	}
+}
+
 // run is the main entry point for the CLI application.
 // It initializes and starts the Minecraft server command, sets up HTTP API routes,
 // and handles graceful shutdown on receiving termination signals.
@@ -79,6 +133,9 @@ func run(cli *cli.Context) error {
 	}
 
 	mcserverCmd := core.NewMCServerCmd(serverCmd, []string{}, rootDir, os.Stdout)
+	if fifoPath := cli.String(inputFifoFlag.Name); fifoPath != "" {
+		go fifoInputLoop(mcserverCmd, fifoPath)
+	}
 
 	// middlewares
 	var (
