@@ -24,14 +24,18 @@ FROM ubuntu:24.04
 
 RUN apt-get update && apt-get install -y \
   ca-certificates \
-  tzdata && \
-  update-ca-certificates \
-  default-jre
+  tzdata \
+  cron \
+  default-jre && \
+  update-ca-certificates
 
-WORKDIR /workdir
+WORKDIR /minecraft
 
 COPY --from=builder /workdir/mcrunner /usr/bin/mcrunner
 
+COPY ./docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 EXPOSE 3000 25565
 
-ENTRYPOINT ["/usr/bin/mcrunner"]
+ENTRYPOINT ["/entrypoint.sh"]

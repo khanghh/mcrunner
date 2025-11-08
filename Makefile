@@ -12,14 +12,14 @@ mcrunner:
 	go build $(LDFLAGS) -o $(BUILD_DIR)/$@ $(CURDIR)/main.go
 	@echo "Done building."
 
-docker-mcrunner:
+build-docker:
 	@echo "Building Docker image: mcrunner:latest" 
 	docker build --rm --progress=plain \
 		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
 		--build-arg GIT_DATE=$(GIT_DATE) \
 		--build-arg GIT_TAG=$(GIT_TAG) \
 		-t mcrunner:latest \
-		-f docker/mcrunner/Dockerfile .
+		-f ./docker/Dockerfile .
 	@echo "Done building."
 
 clean:
