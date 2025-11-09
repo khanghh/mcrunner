@@ -132,6 +132,7 @@ func run(cli *cli.Context) error {
 		return fmt.Errorf("server command must not be empty")
 	}
 
+	localFilesSvc := core.NewLocalFileService(rootDir)
 	mcserverCmd := core.NewMCServerCmd(serverCmd, []string{}, rootDir, os.Stdout)
 	if fifoPath := cli.String(inputFifoFlag.Name); fifoPath != "" {
 		go fifoInputLoop(mcserverCmd, fifoPath)
@@ -149,17 +150,24 @@ func run(cli *cli.Context) error {
 
 	// handlers
 	mcrunnerHandler := handlers.NewMCRunnerHandler(mcserverCmd)
+	fsHandler := handlers.NewFSHandler(localFilesSvc)
 
 	router := fiber.New(fiber.Config{
 		DisableStartupMessage: true,
 		ErrorHandler:          handlers.ErrorHandler,
 	})
 
-	router.Get("/status", mcrunnerHandler.GetStatus)
-	router.Post("/command", mcrunnerHandler.PostCommand)
-	router.Post("/start", mcrunnerHandler.PostStartServer)
-	router.Post("/stop", mcrunnerHandler.PostStopServer)
-	router.Post("/kill", mcrunnerHandler.PostKillServer)
+	router.Get("/api/fs/*", fsHandler.Get)
+	router.Post("/api/fs/*", fsHandler.Post)
+	router.Put("/api/fs/*", fsHandler.Put)
+	router.Patch("/api/fs/*", fsHandler.Patch)
+	router.Delete("/api/fs/*", fsHandler.Delete)
+
+	router.Get("/api/mc/status", mcrunnerHandler.GetStatus)
+	router.Post("/api/mc/command", mcrunnerHandler.PostCommand)
+	router.Post("/api/mc/start", mcrunnerHandler.PostStartServer)
+	router.Post("/api/mc/stop", mcrunnerHandler.PostStopServer)
+	router.Post("/api/mc/kill", mcrunnerHandler.PostKillServer)
 	router.Get("/ws", wsUpgradeRequired, mcrunnerHandler.WebsocketHandler())
 
 	// start the mcserver command and serve http API
