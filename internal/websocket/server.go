@@ -2,7 +2,6 @@ package websocket
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/gofiber/fiber/v2"
 	fiberws "github.com/gofiber/websocket/v2"
@@ -19,35 +18,21 @@ type Server struct {
 	handlers     map[gen.MessageType]HandleFunc
 	onConnect    []func(cl *Client) error
 	onDisconnect []func(cl *Client) error
-	onShutdown   []func(s *Server) error
 	broadcast    chan *gen.Message
 	register     chan *Client
 	unregister   chan *Client
 	shutdown     chan struct{}
-	mu           sync.Mutex
 }
 
 func (s *Server) OnConnect(handler func(cl *Client) error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.onConnect = append(s.onConnect, handler)
 }
 
 func (s *Server) OnDisconnect(handler func(cl *Client) error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.onDisconnect = append(s.onDisconnect, handler)
 }
 
-func (s *Server) OnShutdown(handler func(s *Server) error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.onShutdown = append(s.onShutdown, handler)
-}
-
 func (s *Server) OnMessage(msgtype gen.MessageType, handler HandleFunc) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.handlers[msgtype] = handler
 }
 
@@ -76,6 +61,17 @@ func (s *Server) ServeFiberWS() fiber.Handler {
 }
 
 func (s *Server) loop() {
+	defer func() {
+		for client := range s.clients {
+			for _, handler := range s.onDisconnect {
+				if err := handler(client); err != nil {
+					fmt.Println("disconnect:", err)
+				}
+			}
+			client.Close()
+		}
+	}()
+
 	for {
 		select {
 		case <-s.shutdown:
@@ -84,7 +80,7 @@ func (s *Server) loop() {
 			data, err := proto.Marshal(msg)
 			if err != nil {
 				fmt.Println("proto marshal:", err)
-				return
+				continue
 			}
 			for c := range s.clients {
 				if err := c.send(data); err != nil {
@@ -93,11 +89,22 @@ func (s *Server) loop() {
 			}
 		case cl := <-s.register:
 			s.clients[cl] = struct{}{}
+			for _, handler := range s.onConnect {
+				if err := handler(cl); err != nil {
+					fmt.Println("connect:", err)
+				}
+			}
 		case cl := <-s.unregister:
+			for _, handler := range s.onDisconnect {
+				if err := handler(cl); err != nil {
+					fmt.Println("disconnect:", err)
+				}
+			}
 			cl.Close()
 			delete(s.clients, cl)
 		}
 	}
+
 }
 
 func (s *Server) Shutdown() error {

@@ -158,10 +158,7 @@ func run(cli *cli.Context) error {
 	wsServer := websocket.NewServer()
 	wsServer.StartBroadcast(mcrunnerHandler.WSBroadcast)
 	wsServer.OnConnect(mcrunnerHandler.WSOnClientConnect)
-	wsServer.OnDisconnect(mcrunnerHandler.WSOnClientDisconnect)
-	wsServer.OnShutdown(mcrunnerHandler.WSOnServerShutdown)
 	wsServer.OnMessage(gen.MessageType_PTY_INPUT, mcrunnerHandler.WSHandlePTYInput)
-	wsServer.OnMessage(gen.MessageType_PTY_RESIZE, mcrunnerHandler.WSHandlePTYResize)
 
 	// setup HTTP server and routes
 	router := fiber.New(fiber.Config{

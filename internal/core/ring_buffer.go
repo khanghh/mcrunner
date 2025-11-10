@@ -4,8 +4,8 @@ import (
 	"sync"
 )
 
-// ringBuffer is a fixed-size ring buffer to keep recent PTY output per session.
-type ringBuffer struct {
+// RingBuffer is a fixed-size ring buffer to keep recent PTY output per session.
+type RingBuffer struct {
 	mu    sync.Mutex
 	buf   []byte
 	cap   int
@@ -13,14 +13,14 @@ type ringBuffer struct {
 	size  int
 }
 
-func newRingBuffer(capacity int) *ringBuffer {
+func NewRingBuffer(capacity int) *RingBuffer {
 	if capacity <= 0 {
 		capacity = 1 << 20 // default 1 MiB
 	}
-	return &ringBuffer{buf: make([]byte, capacity), cap: capacity}
+	return &RingBuffer{buf: make([]byte, capacity), cap: capacity}
 }
 
-func (r *ringBuffer) Write(p []byte) (int, error) {
+func (r *RingBuffer) Write(p []byte) (int, error) {
 	n := len(p)
 	if n == 0 {
 		return 0, nil
@@ -53,7 +53,7 @@ func (r *ringBuffer) Write(p []byte) (int, error) {
 	return n, nil
 }
 
-func (r *ringBuffer) Snapshot() []byte {
+func (r *RingBuffer) Snapshot() []byte {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	out := make([]byte, r.size)
@@ -70,7 +70,7 @@ func (r *ringBuffer) Snapshot() []byte {
 	return out
 }
 
-func (r *ringBuffer) Reset() {
+func (r *RingBuffer) Reset() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.buf = make([]byte, r.cap)
