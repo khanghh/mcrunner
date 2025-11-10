@@ -14,6 +14,8 @@ import (
 	"github.com/khanghh/mcrunner/internal/core"
 	"github.com/khanghh/mcrunner/internal/handlers"
 	"github.com/khanghh/mcrunner/internal/params"
+	"github.com/khanghh/mcrunner/internal/websocket"
+	"github.com/khanghh/mcrunner/pkg/gen"
 	"github.com/urfave/cli/v2"
 )
 
@@ -152,25 +154,33 @@ func run(cli *cli.Context) error {
 	mcrunnerHandler := handlers.NewMCRunnerHandler(mcserverCmd)
 	fsHandler := handlers.NewFSHandler(localFilesSvc)
 
+	// setup websocket server
+	wsServer := websocket.NewServer()
+	wsServer.StartBroadcast(mcrunnerHandler.WSBroadcast)
+	wsServer.OnConnect(mcrunnerHandler.WSOnClientConnect)
+	wsServer.OnDisconnect(mcrunnerHandler.WSOnClientDisconnect)
+	wsServer.OnShutdown(mcrunnerHandler.WSOnServerShutdown)
+	wsServer.OnMessage(gen.MessageType_PTY_INPUT, mcrunnerHandler.WSHandlePTYInput)
+	wsServer.OnMessage(gen.MessageType_PTY_RESIZE, mcrunnerHandler.WSHandlePTYResize)
+
+	// setup HTTP server and routes
 	router := fiber.New(fiber.Config{
 		DisableStartupMessage: true,
 		ErrorHandler:          handlers.ErrorHandler,
 	})
-
 	router.Get("/api/fs/*", fsHandler.Get)
 	router.Post("/api/fs/*", fsHandler.Post)
 	router.Put("/api/fs/*", fsHandler.Put)
 	router.Patch("/api/fs/*", fsHandler.Patch)
 	router.Delete("/api/fs/*", fsHandler.Delete)
-
 	router.Get("/api/mc/status", mcrunnerHandler.GetStatus)
 	router.Post("/api/mc/command", mcrunnerHandler.PostCommand)
 	router.Post("/api/mc/start", mcrunnerHandler.PostStartServer)
 	router.Post("/api/mc/stop", mcrunnerHandler.PostStopServer)
 	router.Post("/api/mc/kill", mcrunnerHandler.PostKillServer)
-	router.Get("/ws", wsUpgradeRequired, mcrunnerHandler.WebsocketHandler())
+	router.Get("/ws", wsUpgradeRequired, wsServer.ServeFiberWS())
 
-	// start the mcserver command and serve http API
+	// start the mcserver command
 	if err := mcserverCmd.Start(); err != nil {
 		return fmt.Errorf("failed to start Minecraft server command: %v", err)
 	}
@@ -182,6 +192,7 @@ func run(cli *cli.Context) error {
 		<-sigCh
 		go func() {
 			_ = mcserverCmd.Stop()
+			_ = wsServer.Shutdown()
 			_ = router.Shutdown()
 		}()
 		<-sigCh

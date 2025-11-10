@@ -29,10 +29,9 @@ type MCServerCmd struct {
 
 	// runtime
 	cmd  *exec.Cmd
-	ptmx *os.File // PTY file descriptor
+	ptmx *os.File
 
 	stream       *outputStream
-	buffer       *ringBuffer
 	outputWriter io.Writer
 
 	mu        sync.Mutex
@@ -44,16 +43,13 @@ type MCServerCmd struct {
 
 // NewMCServerCmd creates a new MCServerCmd instance with proper initialization.
 func NewMCServerCmd(cmdPath string, cmdArgs []string, runDir string, stdout io.Writer) *MCServerCmd {
-	ringBuffer := newRingBuffer(1 << 20) // 1 MiB buffer
 	stream := newOutputStream(10)
-	outputWriter := io.MultiWriter(stdout, ringBuffer, stream)
 	return &MCServerCmd{
 		cmdPath:      cmdPath,
 		cmdArgs:      cmdArgs,
 		cmdDir:       runDir,
 		stream:       stream,
-		buffer:       ringBuffer,
-		outputWriter: outputWriter,
+		outputWriter: io.MultiWriter(stdout, stream),
 		done:         make(chan struct{}),
 		status:       StatusStopped,
 	}
@@ -143,10 +139,6 @@ func (m *MCServerCmd) GetStartTime() *time.Time {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.startTime
-}
-
-func (m *MCServerCmd) Snapshot() []byte {
-	return m.buffer.Snapshot()
 }
 
 // Start starts a Minecraft server process using the configured command and arguments.

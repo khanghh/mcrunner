@@ -1,56 +1,45 @@
 package handlers
 
 import (
-	"github.com/gofiber/fiber/v2"
-	fiberws "github.com/gofiber/websocket/v2"
-	"github.com/khanghh/mcrunner/internal/core"
+	"github.com/khanghh/mcrunner/internal/websocket"
+	"github.com/khanghh/mcrunner/pkg/gen"
 )
 
-type mcrunnerWS struct {
-	mcserver *core.MCServerCmd
+func (h *MCRunnerHandler) WSOnClientConnect(cl *websocket.Client) error {
+	return nil
 }
 
-func (h *mcrunnerWS) streamLoop(conn *fiberws.Conn) {
+func (h *MCRunnerHandler) WSOnClientDisconnect(cl *websocket.Client) error {
+	return nil
+}
+
+func (h *MCRunnerHandler) WSOnServerShutdown(s *websocket.Server) error {
+	return nil
+}
+
+func (h *MCRunnerHandler) WSBroadcast(broadcastCh chan *gen.Message, done chan struct{}) {
 	stream := h.mcserver.OutputStream()
-	buf := make([]byte, 1024)
+	buf := make([]byte, 4096)
 	for {
 		n, err := stream.Read(buf)
-		if n > 0 {
-			err := conn.WriteMessage(fiberws.BinaryMessage, buf[:n])
-			if err != nil {
-				return
-			}
-		}
 		if err != nil {
+			return
+		}
+		data := make([]byte, n)
+		copy(data, buf[:n])
+		msg := gen.NewPTYBufferMessage(data)
+		select {
+		case broadcastCh <- msg:
+		case <-done:
 			return
 		}
 	}
 }
 
-func (h *mcrunnerWS) WebsocketHandler() fiber.Handler {
-	return fiberws.New(func(conn *fiberws.Conn) {
-		// Send the history log of the server upon connection
-		snap := h.mcserver.Snapshot()
-		if len(snap) > 0 {
-			err := conn.WriteMessage(fiberws.BinaryMessage, snap)
-			if err != nil {
-				return
-			}
-		}
+func (h *MCRunnerHandler) WSHandlePTYInput(cl *websocket.Client, msg *gen.Message) error {
+	return nil
+}
 
-		// Start streaming live output
-		go h.streamLoop(conn)
-
-		// Read incoming messages (commands) from the client
-		for {
-			_, data, err := conn.ReadMessage()
-			if err != nil {
-				return
-			}
-			_, err = h.mcserver.Write(data)
-			if err != nil {
-				return
-			}
-		}
-	})
+func (h *MCRunnerHandler) WSHandlePTYResize(cl *websocket.Client, msg *gen.Message) error {
+	return nil
 }

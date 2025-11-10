@@ -9,7 +9,6 @@ import (
 
 type MCRunnerHandler struct {
 	mcserver *core.MCServerCmd
-	*mcrunnerWS
 }
 
 func (h *MCRunnerHandler) PostCommand(ctx *fiber.Ctx) error {
@@ -84,8 +83,8 @@ func (h *MCRunnerHandler) GetStatus(ctx *fiber.Ctx) error {
 }
 
 func NewMCRunnerHandler(mcserver *core.MCServerCmd) *MCRunnerHandler {
-	return &MCRunnerHandler{
-		mcserver:   mcserver,
-		mcrunnerWS: &mcrunnerWS{mcserver: mcserver},
+	h := &MCRunnerHandler{
+		mcserver: mcserver,
 	}
+	return h
 }
