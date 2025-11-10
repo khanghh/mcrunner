@@ -8,6 +8,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/creack/pty"
 )
 
 // ServerStatus represents the current server status
@@ -23,15 +25,15 @@ type MCServerCmd struct {
 	// configuration
 	cmdPath string
 	cmdArgs []string
-	runDir  string
-	stdout  io.Writer
+	cmdDir  string
 
 	// runtime
-	cmd *exec.Cmd
+	cmd  *exec.Cmd
+	ptmx *os.File // PTY file descriptor
 
-	// stdin writer to send commands
-	stdinPipe io.WriteCloser
-	stream    *OutputStream
+	stream       *outputStream
+	buffer       *ringBuffer
+	outputWriter io.Writer
 
 	mu        sync.Mutex
 	done      chan struct{}
@@ -42,14 +44,18 @@ type MCServerCmd struct {
 
 // NewMCServerCmd creates a new MCServerCmd instance with proper initialization.
 func NewMCServerCmd(cmdPath string, cmdArgs []string, runDir string, stdout io.Writer) *MCServerCmd {
+	ringBuffer := newRingBuffer(1 << 20) // 1 MiB buffer
+	stream := newOutputStream(10)
+	outputWriter := io.MultiWriter(stdout, ringBuffer, stream)
 	return &MCServerCmd{
-		cmdPath: cmdPath,
-		cmdArgs: cmdArgs,
-		runDir:  runDir,
-		stdout:  stdout,
-		stream:  NewOutputStream(10),
-		done:    make(chan struct{}),
-		status:  StatusStopped,
+		cmdPath:      cmdPath,
+		cmdArgs:      cmdArgs,
+		cmdDir:       runDir,
+		stream:       stream,
+		buffer:       ringBuffer,
+		outputWriter: outputWriter,
+		done:         make(chan struct{}),
+		status:       StatusStopped,
 	}
 }
 
@@ -67,11 +73,13 @@ func (m *MCServerCmd) SendCommand(cmd string) error {
 func (m *MCServerCmd) Write(data []byte) (int, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.stdinPipe == nil {
+	if m.ptmx == nil {
 		return 0, os.ErrInvalid
 	}
-	m.stream.Write(data)
-	return m.stdinPipe.Write(data)
+	return m.ptmx.Write(data)
+}
+func (m *MCServerCmd) Read(p []byte) (int, error) {
+	return 0, nil
 }
 
 // Wait blocks until the Minecraft server process exits.
@@ -137,46 +145,42 @@ func (m *MCServerCmd) GetStartTime() *time.Time {
 	return m.startTime
 }
 
+func (m *MCServerCmd) Snapshot() []byte {
+	return m.buffer.Snapshot()
+}
+
 // Start starts a Minecraft server process using the configured command and arguments.
 func (m *MCServerCmd) Start() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	cmd := exec.Command(m.cmdPath, m.cmdArgs...)
-	if m.runDir != "" {
-		cmd.Dir = m.runDir
+	if m.cmdDir != "" {
+		cmd.Dir = m.cmdDir
 	}
 
-	stdinPipe, err := cmd.StdinPipe()
+	// Start the command with PTY
+	ptmx, err := pty.Start(cmd)
 	if err != nil {
 		return err
 	}
 
-	var stdoutWriter io.Writer = m.stream
-	if m.stdout != nil {
-		stdoutWriter = io.MultiWriter(m.stream, m.stdout)
-	}
-
-	cmd.Stdout = stdoutWriter
-	cmd.Stderr = stdoutWriter
-
-	if err := cmd.Start(); err != nil {
-		_ = stdinPipe.Close()
-		return err
-	}
-
 	m.cmd = cmd
-	m.stdinPipe = stdinPipe
+	m.ptmx = ptmx
 	m.status = StatusRunning
 	now := time.Now()
 	m.startTime = &now
 	m.done = make(chan struct{})
 
+	go io.Copy(m.outputWriter, ptmx)
+
+	// Wait for command to finish
 	go func() {
 		mErr := cmd.Wait()
 		m.mu.Lock()
 		m.err = mErr
 		m.status = StatusStopped
+		ptmx.Close()
 		close(m.done)
 		m.mu.Unlock()
 	}()

@@ -4,16 +4,16 @@ import (
 	"io"
 )
 
-type OutputStream struct {
+type outputStream struct {
 	pr      *io.PipeReader
 	pw      *io.PipeWriter
 	done    chan struct{}
 	writeCh chan []byte
 }
 
-func NewOutputStream(buffer int) *OutputStream {
+func newOutputStream(buffer int) *outputStream {
 	pr, pw := io.Pipe()
-	s := &OutputStream{
+	s := &outputStream{
 		pr:      pr,
 		pw:      pw,
 		done:    make(chan struct{}),
@@ -26,8 +26,11 @@ func NewOutputStream(buffer int) *OutputStream {
 			select {
 			case <-s.done:
 				return
-			case p := <-s.writeCh:
-				pw.Write(p) // Only one goroutine writes → order preserved
+			case p, ok := <-s.writeCh:
+				if !ok {
+					return
+				}
+				pw.Write(p)
 			}
 		}
 	}()
@@ -35,7 +38,7 @@ func NewOutputStream(buffer int) *OutputStream {
 	return s
 }
 
-func (s *OutputStream) Write(p []byte) (int, error) {
+func (s *outputStream) Write(p []byte) (int, error) {
 	data := make([]byte, len(p))
 	copy(data, p)
 
@@ -50,11 +53,12 @@ func (s *OutputStream) Write(p []byte) (int, error) {
 	}
 }
 
-func (s *OutputStream) Read(p []byte) (int, error) {
+func (s *outputStream) Read(p []byte) (int, error) {
 	return s.pr.Read(p)
 }
 
-func (s *OutputStream) Close() error {
+func (s *outputStream) Close() error {
 	close(s.done)
+	close(s.writeCh)
 	return s.pw.Close()
 }
