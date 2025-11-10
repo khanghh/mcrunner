@@ -8,34 +8,51 @@ enum MessageType {
   UNKNOWN = 0;
   ERROR = 1;
 
-  // PTY related message types
-  PTY_BUFFER = 101;
-  PTY_INPUT = 102;
+  // pty related message types
+  PTY_INPUT = 101;
+  PTY_OUTPUT = 102;
   PTY_RESIZE = 103;
+
+  // server action message types
+  SERVER_START = 104;
+  SERVER_STOP = 105;
+  SERVER_KILL = 106;
+}
+
+enum ServerState {
+  STOPPED = 0;
+  RUNNING = 1;
+  STOPPING = 2;
 }
 
 message Message {
   MessageType type = 1;
-  string error = 2;
   oneof payload {
+    ErrorInfo error = 2;
     PtyBuffer pty_buffer = 3;
-    PtyInput pty_input = 4;
-    PtyResize pty_resize = 5;
+    PtyResize pty_resize = 4;
+    ServerStatus server_status = 5;
   }
 }
 
 message PtyBuffer {
-  string session_id = 1;
-  bytes data = 2;
-}
-
-message PtyInput {
-  string session_id = 1;
-  bytes data = 2;
+  bytes data = 1;
 }
 
 message PtyResize {
-  string session_id = 1;
-  uint32 cols = 2;
-  uint32 rows = 3;
+  uint32 cols = 1;
+  uint32 rows = 2;
+}
+
+message ServerStatus {
+  ServerState state = 1;
+  int32 pid = 2;
+  int64 uptime = 3;
+  int64 players = 4;
+  string version = 5;
+}
+
+message ErrorInfo {
+  string code    = 1;
+  string message = 2;
 }

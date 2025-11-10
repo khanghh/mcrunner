@@ -27,10 +27,14 @@ const (
 	// System message types
 	MessageType_UNKNOWN MessageType = 0
 	MessageType_ERROR   MessageType = 1
-	// PTY related message types
-	MessageType_PTY_BUFFER MessageType = 101
-	MessageType_PTY_INPUT  MessageType = 102
+	// pty related message types
+	MessageType_PTY_INPUT  MessageType = 101
+	MessageType_PTY_OUTPUT MessageType = 102
 	MessageType_PTY_RESIZE MessageType = 103
+	// server action message types
+	MessageType_SERVER_START MessageType = 104
+	MessageType_SERVER_STOP  MessageType = 105
+	MessageType_SERVER_KILL  MessageType = 106
 )
 
 // Enum value maps for MessageType.
@@ -38,16 +42,22 @@ var (
 	MessageType_name = map[int32]string{
 		0:   "UNKNOWN",
 		1:   "ERROR",
-		101: "PTY_BUFFER",
-		102: "PTY_INPUT",
+		101: "PTY_INPUT",
+		102: "PTY_OUTPUT",
 		103: "PTY_RESIZE",
+		104: "SERVER_START",
+		105: "SERVER_STOP",
+		106: "SERVER_KILL",
 	}
 	MessageType_value = map[string]int32{
-		"UNKNOWN":    0,
-		"ERROR":      1,
-		"PTY_BUFFER": 101,
-		"PTY_INPUT":  102,
-		"PTY_RESIZE": 103,
+		"UNKNOWN":      0,
+		"ERROR":        1,
+		"PTY_INPUT":    101,
+		"PTY_OUTPUT":   102,
+		"PTY_RESIZE":   103,
+		"SERVER_START": 104,
+		"SERVER_STOP":  105,
+		"SERVER_KILL":  106,
 	}
 )
 
@@ -78,15 +88,64 @@ func (MessageType) EnumDescriptor() ([]byte, []int) {
 	return file_message_proto_rawDescGZIP(), []int{0}
 }
 
+type ServerState int32
+
+const (
+	ServerState_STOPPED  ServerState = 0
+	ServerState_RUNNING  ServerState = 1
+	ServerState_STOPPING ServerState = 2
+)
+
+// Enum value maps for ServerState.
+var (
+	ServerState_name = map[int32]string{
+		0: "STOPPED",
+		1: "RUNNING",
+		2: "STOPPING",
+	}
+	ServerState_value = map[string]int32{
+		"STOPPED":  0,
+		"RUNNING":  1,
+		"STOPPING": 2,
+	}
+)
+
+func (x ServerState) Enum() *ServerState {
+	p := new(ServerState)
+	*p = x
+	return p
+}
+
+func (x ServerState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ServerState) Descriptor() protoreflect.EnumDescriptor {
+	return file_message_proto_enumTypes[1].Descriptor()
+}
+
+func (ServerState) Type() protoreflect.EnumType {
+	return &file_message_proto_enumTypes[1]
+}
+
+func (x ServerState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ServerState.Descriptor instead.
+func (ServerState) EnumDescriptor() ([]byte, []int) {
+	return file_message_proto_rawDescGZIP(), []int{1}
+}
+
 type Message struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Type  MessageType            `protobuf:"varint,1,opt,name=type,proto3,enum=MessageType" json:"type,omitempty"`
-	Error string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
 	// Types that are valid to be assigned to Payload:
 	//
+	//	*Message_Error
 	//	*Message_PtyBuffer
-	//	*Message_PtyInput
 	//	*Message_PtyResize
+	//	*Message_ServerStatus
 	Payload       isMessage_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -129,16 +188,18 @@ func (x *Message) GetType() MessageType {
 	return MessageType_UNKNOWN
 }
 
-func (x *Message) GetError() string {
-	if x != nil {
-		return x.Error
-	}
-	return ""
-}
-
 func (x *Message) GetPayload() isMessage_Payload {
 	if x != nil {
 		return x.Payload
+	}
+	return nil
+}
+
+func (x *Message) GetError() *ErrorInfo {
+	if x != nil {
+		if x, ok := x.Payload.(*Message_Error); ok {
+			return x.Error
+		}
 	}
 	return nil
 }
@@ -147,15 +208,6 @@ func (x *Message) GetPtyBuffer() *PtyBuffer {
 	if x != nil {
 		if x, ok := x.Payload.(*Message_PtyBuffer); ok {
 			return x.PtyBuffer
-		}
-	}
-	return nil
-}
-
-func (x *Message) GetPtyInput() *PtyInput {
-	if x != nil {
-		if x, ok := x.Payload.(*Message_PtyInput); ok {
-			return x.PtyInput
 		}
 	}
 	return nil
@@ -170,32 +222,46 @@ func (x *Message) GetPtyResize() *PtyResize {
 	return nil
 }
 
+func (x *Message) GetServerStatus() *ServerStatus {
+	if x != nil {
+		if x, ok := x.Payload.(*Message_ServerStatus); ok {
+			return x.ServerStatus
+		}
+	}
+	return nil
+}
+
 type isMessage_Payload interface {
 	isMessage_Payload()
+}
+
+type Message_Error struct {
+	Error *ErrorInfo `protobuf:"bytes,2,opt,name=error,proto3,oneof"`
 }
 
 type Message_PtyBuffer struct {
 	PtyBuffer *PtyBuffer `protobuf:"bytes,3,opt,name=pty_buffer,json=ptyBuffer,proto3,oneof"`
 }
 
-type Message_PtyInput struct {
-	PtyInput *PtyInput `protobuf:"bytes,4,opt,name=pty_input,json=ptyInput,proto3,oneof"`
+type Message_PtyResize struct {
+	PtyResize *PtyResize `protobuf:"bytes,4,opt,name=pty_resize,json=ptyResize,proto3,oneof"`
 }
 
-type Message_PtyResize struct {
-	PtyResize *PtyResize `protobuf:"bytes,5,opt,name=pty_resize,json=ptyResize,proto3,oneof"`
+type Message_ServerStatus struct {
+	ServerStatus *ServerStatus `protobuf:"bytes,5,opt,name=server_status,json=serverStatus,proto3,oneof"`
 }
+
+func (*Message_Error) isMessage_Payload() {}
 
 func (*Message_PtyBuffer) isMessage_Payload() {}
 
-func (*Message_PtyInput) isMessage_Payload() {}
-
 func (*Message_PtyResize) isMessage_Payload() {}
+
+func (*Message_ServerStatus) isMessage_Payload() {}
 
 type PtyBuffer struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	Data          []byte                 `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	Data          []byte                 `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -230,66 +296,7 @@ func (*PtyBuffer) Descriptor() ([]byte, []int) {
 	return file_message_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *PtyBuffer) GetSessionId() string {
-	if x != nil {
-		return x.SessionId
-	}
-	return ""
-}
-
 func (x *PtyBuffer) GetData() []byte {
-	if x != nil {
-		return x.Data
-	}
-	return nil
-}
-
-type PtyInput struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	Data          []byte                 `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *PtyInput) Reset() {
-	*x = PtyInput{}
-	mi := &file_message_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *PtyInput) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PtyInput) ProtoMessage() {}
-
-func (x *PtyInput) ProtoReflect() protoreflect.Message {
-	mi := &file_message_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PtyInput.ProtoReflect.Descriptor instead.
-func (*PtyInput) Descriptor() ([]byte, []int) {
-	return file_message_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *PtyInput) GetSessionId() string {
-	if x != nil {
-		return x.SessionId
-	}
-	return ""
-}
-
-func (x *PtyInput) GetData() []byte {
 	if x != nil {
 		return x.Data
 	}
@@ -298,16 +305,15 @@ func (x *PtyInput) GetData() []byte {
 
 type PtyResize struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	Cols          uint32                 `protobuf:"varint,2,opt,name=cols,proto3" json:"cols,omitempty"`
-	Rows          uint32                 `protobuf:"varint,3,opt,name=rows,proto3" json:"rows,omitempty"`
+	Cols          uint32                 `protobuf:"varint,1,opt,name=cols,proto3" json:"cols,omitempty"`
+	Rows          uint32                 `protobuf:"varint,2,opt,name=rows,proto3" json:"rows,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PtyResize) Reset() {
 	*x = PtyResize{}
-	mi := &file_message_proto_msgTypes[3]
+	mi := &file_message_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -319,7 +325,7 @@ func (x *PtyResize) String() string {
 func (*PtyResize) ProtoMessage() {}
 
 func (x *PtyResize) ProtoReflect() protoreflect.Message {
-	mi := &file_message_proto_msgTypes[3]
+	mi := &file_message_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -332,14 +338,7 @@ func (x *PtyResize) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PtyResize.ProtoReflect.Descriptor instead.
 func (*PtyResize) Descriptor() ([]byte, []int) {
-	return file_message_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *PtyResize) GetSessionId() string {
-	if x != nil {
-		return x.SessionId
-	}
-	return ""
+	return file_message_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *PtyResize) GetCols() uint32 {
@@ -356,43 +355,180 @@ func (x *PtyResize) GetRows() uint32 {
 	return 0
 }
 
+type ServerStatus struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	State         ServerState            `protobuf:"varint,1,opt,name=state,proto3,enum=ServerState" json:"state,omitempty"`
+	Pid           int32                  `protobuf:"varint,2,opt,name=pid,proto3" json:"pid,omitempty"`
+	Uptime        int64                  `protobuf:"varint,3,opt,name=uptime,proto3" json:"uptime,omitempty"`
+	Players       int64                  `protobuf:"varint,4,opt,name=players,proto3" json:"players,omitempty"`
+	Version       string                 `protobuf:"bytes,5,opt,name=version,proto3" json:"version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerStatus) Reset() {
+	*x = ServerStatus{}
+	mi := &file_message_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerStatus) ProtoMessage() {}
+
+func (x *ServerStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_message_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerStatus.ProtoReflect.Descriptor instead.
+func (*ServerStatus) Descriptor() ([]byte, []int) {
+	return file_message_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ServerStatus) GetState() ServerState {
+	if x != nil {
+		return x.State
+	}
+	return ServerState_STOPPED
+}
+
+func (x *ServerStatus) GetPid() int32 {
+	if x != nil {
+		return x.Pid
+	}
+	return 0
+}
+
+func (x *ServerStatus) GetUptime() int64 {
+	if x != nil {
+		return x.Uptime
+	}
+	return 0
+}
+
+func (x *ServerStatus) GetPlayers() int64 {
+	if x != nil {
+		return x.Players
+	}
+	return 0
+}
+
+func (x *ServerStatus) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+type ErrorInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ErrorInfo) Reset() {
+	*x = ErrorInfo{}
+	mi := &file_message_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ErrorInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ErrorInfo) ProtoMessage() {}
+
+func (x *ErrorInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_message_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ErrorInfo.ProtoReflect.Descriptor instead.
+func (*ErrorInfo) Descriptor() ([]byte, []int) {
+	return file_message_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ErrorInfo) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *ErrorInfo) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 var File_message_proto protoreflect.FileDescriptor
 
 const file_message_proto_rawDesc = "" +
 	"\n" +
-	"\rmessage.proto\"\xd0\x01\n" +
+	"\rmessage.proto\"\xea\x01\n" +
 	"\aMessage\x12 \n" +
-	"\x04type\x18\x01 \x01(\x0e2\f.MessageTypeR\x04type\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error\x12+\n" +
+	"\x04type\x18\x01 \x01(\x0e2\f.MessageTypeR\x04type\x12\"\n" +
+	"\x05error\x18\x02 \x01(\v2\n" +
+	".ErrorInfoH\x00R\x05error\x12+\n" +
 	"\n" +
 	"pty_buffer\x18\x03 \x01(\v2\n" +
-	".PtyBufferH\x00R\tptyBuffer\x12(\n" +
-	"\tpty_input\x18\x04 \x01(\v2\t.PtyInputH\x00R\bptyInput\x12+\n" +
+	".PtyBufferH\x00R\tptyBuffer\x12+\n" +
 	"\n" +
-	"pty_resize\x18\x05 \x01(\v2\n" +
-	".PtyResizeH\x00R\tptyResizeB\t\n" +
-	"\apayload\">\n" +
-	"\tPtyBuffer\x12\x1d\n" +
-	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x12\n" +
-	"\x04data\x18\x02 \x01(\fR\x04data\"=\n" +
-	"\bPtyInput\x12\x1d\n" +
-	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x12\n" +
-	"\x04data\x18\x02 \x01(\fR\x04data\"R\n" +
-	"\tPtyResize\x12\x1d\n" +
-	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x12\n" +
-	"\x04cols\x18\x02 \x01(\rR\x04cols\x12\x12\n" +
-	"\x04rows\x18\x03 \x01(\rR\x04rows*T\n" +
+	"pty_resize\x18\x04 \x01(\v2\n" +
+	".PtyResizeH\x00R\tptyResize\x124\n" +
+	"\rserver_status\x18\x05 \x01(\v2\r.ServerStatusH\x00R\fserverStatusB\t\n" +
+	"\apayload\"\x1f\n" +
+	"\tPtyBuffer\x12\x12\n" +
+	"\x04data\x18\x01 \x01(\fR\x04data\"3\n" +
+	"\tPtyResize\x12\x12\n" +
+	"\x04cols\x18\x01 \x01(\rR\x04cols\x12\x12\n" +
+	"\x04rows\x18\x02 \x01(\rR\x04rows\"\x90\x01\n" +
+	"\fServerStatus\x12\"\n" +
+	"\x05state\x18\x01 \x01(\x0e2\f.ServerStateR\x05state\x12\x10\n" +
+	"\x03pid\x18\x02 \x01(\x05R\x03pid\x12\x16\n" +
+	"\x06uptime\x18\x03 \x01(\x03R\x06uptime\x12\x18\n" +
+	"\aplayers\x18\x04 \x01(\x03R\aplayers\x12\x18\n" +
+	"\aversion\x18\x05 \x01(\tR\aversion\"9\n" +
+	"\tErrorInfo\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage*\x88\x01\n" +
 	"\vMessageType\x12\v\n" +
 	"\aUNKNOWN\x10\x00\x12\t\n" +
-	"\x05ERROR\x10\x01\x12\x0e\n" +
+	"\x05ERROR\x10\x01\x12\r\n" +
+	"\tPTY_INPUT\x10e\x12\x0e\n" +
 	"\n" +
-	"PTY_BUFFER\x10e\x12\r\n" +
-	"\tPTY_INPUT\x10f\x12\x0e\n" +
+	"PTY_OUTPUT\x10f\x12\x0e\n" +
 	"\n" +
-	"PTY_RESIZE\x10gB,Z*github.com/khang/mcrunner/internal/gen;genb\x06proto3"
+	"PTY_RESIZE\x10g\x12\x10\n" +
+	"\fSERVER_START\x10h\x12\x0f\n" +
+	"\vSERVER_STOP\x10i\x12\x0f\n" +
+	"\vSERVER_KILL\x10j*5\n" +
+	"\vServerState\x12\v\n" +
+	"\aSTOPPED\x10\x00\x12\v\n" +
+	"\aRUNNING\x10\x01\x12\f\n" +
+	"\bSTOPPING\x10\x02B,Z*github.com/khang/mcrunner/internal/gen;genb\x06proto3"
 
 var (
 	file_message_proto_rawDescOnce sync.Once
@@ -406,25 +542,29 @@ func file_message_proto_rawDescGZIP() []byte {
 	return file_message_proto_rawDescData
 }
 
-var file_message_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_message_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_message_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_message_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_message_proto_goTypes = []any{
-	(MessageType)(0),  // 0: MessageType
-	(*Message)(nil),   // 1: Message
-	(*PtyBuffer)(nil), // 2: PtyBuffer
-	(*PtyInput)(nil),  // 3: PtyInput
-	(*PtyResize)(nil), // 4: PtyResize
+	(MessageType)(0),     // 0: MessageType
+	(ServerState)(0),     // 1: ServerState
+	(*Message)(nil),      // 2: Message
+	(*PtyBuffer)(nil),    // 3: PtyBuffer
+	(*PtyResize)(nil),    // 4: PtyResize
+	(*ServerStatus)(nil), // 5: ServerStatus
+	(*ErrorInfo)(nil),    // 6: ErrorInfo
 }
 var file_message_proto_depIdxs = []int32{
 	0, // 0: Message.type:type_name -> MessageType
-	2, // 1: Message.pty_buffer:type_name -> PtyBuffer
-	3, // 2: Message.pty_input:type_name -> PtyInput
+	6, // 1: Message.error:type_name -> ErrorInfo
+	3, // 2: Message.pty_buffer:type_name -> PtyBuffer
 	4, // 3: Message.pty_resize:type_name -> PtyResize
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	5, // 4: Message.server_status:type_name -> ServerStatus
+	1, // 5: ServerStatus.state:type_name -> ServerState
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_message_proto_init() }
@@ -433,17 +573,18 @@ func file_message_proto_init() {
 		return
 	}
 	file_message_proto_msgTypes[0].OneofWrappers = []any{
+		(*Message_Error)(nil),
 		(*Message_PtyBuffer)(nil),
-		(*Message_PtyInput)(nil),
 		(*Message_PtyResize)(nil),
+		(*Message_ServerStatus)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_message_proto_rawDesc), len(file_message_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   4,
+			NumEnums:      2,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

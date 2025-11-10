@@ -12,7 +12,7 @@ type mcrunnerWSHandler struct {
 }
 
 func (h *mcrunnerWSHandler) WSOnClientConnect(cl *websocket.Client) error {
-	msg := gen.NewPTYBufferMessage(h.buffer.Snapshot())
+	msg := gen.NewPTYOutputMessage(h.buffer.Snapshot())
 	return cl.SendMessage(msg)
 }
 
@@ -28,7 +28,7 @@ func (h *mcrunnerWSHandler) WSBroadcast(broadcastCh chan *gen.Message, done chan
 		copy(data, buf[:n])
 
 		h.buffer.Write(data)
-		msg := gen.NewPTYBufferMessage(data)
+		msg := gen.NewPTYOutputMessage(data)
 		select {
 		case broadcastCh <- msg:
 		case <-done:
@@ -38,7 +38,7 @@ func (h *mcrunnerWSHandler) WSBroadcast(broadcastCh chan *gen.Message, done chan
 }
 
 func (h *mcrunnerWSHandler) WSHandlePTYInput(cl *websocket.Client, msg *gen.Message) error {
-	input := msg.GetPtyInput().Data
+	input := msg.GetPtyBuffer().Data
 	_, err := h.mcserver.Write(input)
 	return err
 }

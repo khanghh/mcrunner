@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	ErrNotFound = errors.New("not found")
+	ErrFileNotFound = errors.New("file not found")
 )
 
 // Helper functions

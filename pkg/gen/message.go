@@ -1,8 +1,8 @@
 package gen
 
-func NewPTYBufferMessage(buf []byte) *Message {
+func NewPTYOutputMessage(buf []byte) *Message {
 	return &Message{
-		Type: MessageType_PTY_BUFFER,
+		Type: MessageType_PTY_OUTPUT,
 		Payload: &Message_PtyBuffer{
 			PtyBuffer: &PtyBuffer{
 				Data: buf,

@@ -3,6 +3,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -74,8 +75,8 @@ func (d *Duration) UnmarshalJSON(data []byte) error {
 	return fmt.Errorf("invalid duration format: %s", string(data))
 }
 
-// New creates a new MCRunner API client
-func New(baseURL string) *MCRunnerAPI {
+// NewMCRunnerAPI creates a new MCRunner API client
+func NewMCRunnerAPI(baseURL string) *MCRunnerAPI {
 	return &MCRunnerAPI{
 		baseURL: baseURL,
 		httpClient: &http.Client{
@@ -90,8 +91,12 @@ func (c *MCRunnerAPI) SetHTTPClient(client *http.Client) {
 }
 
 // GetStatus retrieves the current server status
-func (c *MCRunnerAPI) GetStatus() (*StatusResponse, error) {
-	resp, err := c.httpClient.Get(c.baseURL + "/status")
+func (c *MCRunnerAPI) GetStatus(ctx context.Context) (*StatusResponse, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/status", nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -115,8 +120,12 @@ func (c *MCRunnerAPI) GetStatus() (*StatusResponse, error) {
 }
 
 // StartServer starts the Minecraft server
-func (c *MCRunnerAPI) StartServer() error {
-	resp, err := c.httpClient.Post(c.baseURL+"/start", "application/json", nil)
+func (c *MCRunnerAPI) StartServer(ctx context.Context) error {
+	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/start", nil)
+	if err != nil {
+		return err
+	}
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -135,8 +144,12 @@ func (c *MCRunnerAPI) StartServer() error {
 }
 
 // StopServer stops the Minecraft server gracefully
-func (c *MCRunnerAPI) StopServer() error {
-	resp, err := c.httpClient.Post(c.baseURL+"/stop", "application/json", nil)
+func (c *MCRunnerAPI) StopServer(ctx context.Context) error {
+	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/stop", nil)
+	if err != nil {
+		return err
+	}
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -155,8 +168,12 @@ func (c *MCRunnerAPI) StopServer() error {
 }
 
 // KillServer forcefully kills the Minecraft server
-func (c *MCRunnerAPI) KillServer() error {
-	resp, err := c.httpClient.Post(c.baseURL+"/kill", "application/json", nil)
+func (c *MCRunnerAPI) KillServer(ctx context.Context) error {
+	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/kill", nil)
+	if err != nil {
+		return err
+	}
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -175,14 +192,20 @@ func (c *MCRunnerAPI) KillServer() error {
 }
 
 // SendCommand sends a command to the Minecraft server
-func (c *MCRunnerAPI) SendCommand(command string) error {
-	req := CommandRequest{Command: command}
-	jsonData, err := json.Marshal(req)
+func (c *MCRunnerAPI) SendCommand(ctx context.Context, command string) error {
+	reqBody := CommandRequest{Command: command}
+	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	resp, err := c.httpClient.Post(c.baseURL+"/command", "application/json", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/command", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return err
 	}
