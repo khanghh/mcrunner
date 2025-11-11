@@ -6,10 +6,12 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	fiberws "github.com/gofiber/websocket/v2"
 	"github.com/khanghh/mcrunner/internal/core"
 	"github.com/khanghh/mcrunner/internal/handlers"
@@ -107,7 +109,7 @@ func fifoInputLoop(mcserverCmd *core.MCServerCmd, fifoPath string) {
 		buf := make([]byte, 4096)
 		for {
 			n, readErr := fifoFile.Read(buf)
-			if n > 0 && mcserverCmd.GetStatus() == core.StatusRunning {
+			if n > 0 && mcserverCmd.GetStatus() == core.StateRunning {
 				if _, wErr := mcserverCmd.Write(buf[:n]); wErr != nil {
 					fmt.Fprintf(os.Stderr, "write stdin failed: %v\n", wErr)
 				}
@@ -123,6 +125,32 @@ func fifoInputLoop(mcserverCmd *core.MCServerCmd, fifoPath string) {
 	}
 }
 
+func mustResolveRootDir(rootDir string) string {
+	absPath, err := filepath.Abs(rootDir)
+	if err != nil {
+		panic("failed to resolve absolute path: " + err.Error())
+	}
+
+	resolved, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		panic("failed to resolve symlinks: " + err.Error())
+	}
+
+	info, err := os.Stat(resolved)
+	if err != nil {
+		if os.IsNotExist(err) {
+			panic("rootdir does not exist")
+		}
+		panic("failed to stat rootdir: " + err.Error())
+	}
+
+	if !info.IsDir() {
+		panic("rootdir must be a directory")
+	}
+
+	return resolved
+}
+
 // run is the main entry point for the CLI application.
 // It initializes and starts the Minecraft server command, sets up HTTP API routes,
 // and handles graceful shutdown on receiving termination signals.
@@ -134,7 +162,8 @@ func run(cli *cli.Context) error {
 		return fmt.Errorf("server command must not be empty")
 	}
 
-	localFilesSvc := core.NewLocalFileService(rootDir)
+	absRootDir := mustResolveRootDir(rootDir)
+	localFilesSvc := core.NewLocalFileService(absRootDir)
 	mcserverCmd := core.NewMCServerCmd(serverCmd, []string{}, rootDir, os.Stdout)
 	if fifoPath := cli.String(inputFifoFlag.Name); fifoPath != "" {
 		go fifoInputLoop(mcserverCmd, fifoPath)
@@ -165,6 +194,11 @@ func run(cli *cli.Context) error {
 		DisableStartupMessage: true,
 		ErrorHandler:          handlers.ErrorHandler,
 	})
+	router.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
+		AllowHeaders: "*",
+	}))
 	router.Get("/api/fs/*", fsHandler.Get)
 	router.Post("/api/fs/*", fsHandler.Post)
 	router.Put("/api/fs/*", fsHandler.Put)
@@ -174,6 +208,7 @@ func run(cli *cli.Context) error {
 	router.Post("/api/mc/command", mcrunnerHandler.PostCommand)
 	router.Post("/api/mc/start", mcrunnerHandler.PostStartServer)
 	router.Post("/api/mc/stop", mcrunnerHandler.PostStopServer)
+	router.Post("/api/mc/restart", mcrunnerHandler.PostRestartServer)
 	router.Post("/api/mc/kill", mcrunnerHandler.PostKillServer)
 	router.Get("/ws", wsUpgradeRequired, wsServer.ServeFiberWS())
 

@@ -17,6 +17,7 @@ enum MessageType {
   SERVER_START = 104;
   SERVER_STOP = 105;
   SERVER_KILL = 106;
+  SERVER_STATUS = 107;
 }
 
 enum ServerState {

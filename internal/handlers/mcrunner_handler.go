@@ -27,17 +27,19 @@ func (h *MCRunnerHandler) PostCommand(ctx *fiber.Ctx) error {
 }
 
 func (h *MCRunnerHandler) PostStartServer(ctx *fiber.Ctx) error {
-	if h.mcserver.GetStatus() == core.StatusRunning {
+	if h.mcserver.GetStatus() == core.StateRunning {
 		return ErrServerAlreadyRunning
 	}
+	h.buffer.Reset()
 	if err := h.mcserver.Start(); err != nil {
 		return InternalServerError(err)
 	}
+
 	return ctx.SendStatus(fiber.StatusOK)
 }
 
 func (h *MCRunnerHandler) PostStopServer(ctx *fiber.Ctx) error {
-	if h.mcserver.GetStatus() != core.StatusRunning {
+	if h.mcserver.GetStatus() != core.StateRunning {
 		return ErrServerNotRunning
 	}
 	if err := h.mcserver.Stop(); err != nil {
@@ -46,8 +48,21 @@ func (h *MCRunnerHandler) PostStopServer(ctx *fiber.Ctx) error {
 	return ctx.SendStatus(fiber.StatusOK)
 }
 
+func (h *MCRunnerHandler) PostRestartServer(ctx *fiber.Ctx) error {
+	if h.mcserver.GetStatus() != core.StateRunning {
+		return ErrServerNotRunning
+	}
+	if err := h.mcserver.Stop(); err != nil {
+		return InternalServerError(err)
+	}
+	if err := h.mcserver.Start(); err != nil {
+		return InternalServerError(err)
+	}
+	return ctx.SendStatus(fiber.StatusOK)
+}
+
 func (h *MCRunnerHandler) PostKillServer(ctx *fiber.Ctx) error {
-	if h.mcserver.GetStatus() != core.StatusRunning {
+	if h.mcserver.GetStatus() != core.StateRunning {
 		return ErrServerNotRunning
 	}
 	if err := h.mcserver.Kill(); err != nil {
@@ -63,7 +78,7 @@ func (h *MCRunnerHandler) GetStatus(ctx *fiber.Ctx) error {
 	var pid int
 	var uptime *time.Duration
 
-	if status == core.StatusRunning && h.mcserver.GetProcess() != nil {
+	if status == core.StateRunning && h.mcserver.GetProcess() != nil {
 		pid = h.mcserver.GetProcess().Pid
 		if startTime != nil {
 			uptimeDuration := time.Since(*startTime)
@@ -84,6 +99,7 @@ func (h *MCRunnerHandler) GetStatus(ctx *fiber.Ctx) error {
 }
 
 func NewMCRunnerHandler(mcserver *core.MCServerCmd) *MCRunnerHandler {
+
 	return &MCRunnerHandler{
 		mcserver: mcserver,
 		mcrunnerWSHandler: &mcrunnerWSHandler{

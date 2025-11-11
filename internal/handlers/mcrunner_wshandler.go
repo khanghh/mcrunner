@@ -17,6 +17,9 @@ func (h *mcrunnerWSHandler) WSOnClientConnect(cl *websocket.Client) error {
 }
 
 func (h *mcrunnerWSHandler) WSBroadcast(broadcastCh chan *gen.Message, done chan struct{}) {
+	h.mcserver.OnStatusChanged(func(state core.ServerState) {
+		broadcastCh <- NewServerStatusMessage(state)
+	})
 	stream := h.mcserver.OutputStream()
 	buf := make([]byte, 4096)
 	for {
@@ -38,7 +41,10 @@ func (h *mcrunnerWSHandler) WSBroadcast(broadcastCh chan *gen.Message, done chan
 }
 
 func (h *mcrunnerWSHandler) WSHandlePTYInput(cl *websocket.Client, msg *gen.Message) error {
-	input := msg.GetPtyBuffer().Data
-	_, err := h.mcserver.Write(input)
-	return err
+	ptyBuffer := msg.GetPtyBuffer()
+	if ptyBuffer != nil {
+		_, err := h.mcserver.Write(ptyBuffer.Data)
+		return err
+	}
+	return nil
 }
