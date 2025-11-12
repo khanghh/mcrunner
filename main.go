@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -36,8 +37,13 @@ var (
 	}
 	rootDirFlag = &cli.StringFlag{
 		Name:    "rootdir",
-		Aliases: []string{"dir", "d"},
+		Aliases: []string{"d"},
 		Usage:   "Minecraft server root directory",
+	}
+	staticDirFlag = &cli.StringFlag{
+		Name:    "staticdir",
+		Aliases: []string{"s"},
+		Usage:   "Static directory to serve files from",
 	}
 	inputFifoFlag = &cli.StringFlag{
 		Name:    "fifo",
@@ -151,20 +157,33 @@ func mustResolveRootDir(rootDir string) string {
 	return resolved
 }
 
+func parseServerCmd(commandStr string) (string, []string) {
+	parts := strings.Fields(commandStr)
+	cmdPath := parts[0]
+	if len(parts) > 1 {
+		return cmdPath, parts[1:]
+	}
+	return commandStr, []string{}
+}
+
 // run is the main entry point for the CLI application.
 // It initializes and starts the Minecraft server command, sets up HTTP API routes,
 // and handles graceful shutdown on receiving termination signals.
 func run(cli *cli.Context) error {
 	rootDir := cli.String(rootDirFlag.Name)
+	staticDir := cli.String(staticDirFlag.Name)
 	listenAddr := cli.String(listenFlag.Name)
 	serverCmd := cli.String(commandFlag.Name)
 	if serverCmd == "" {
 		return fmt.Errorf("server command must not be empty")
 	}
+	cmdPath, cmdArgs := parseServerCmd(serverCmd)
+	fmt.Println("cmdPath", cmdPath)
+	fmt.Println("cmdArgs", cmdArgs)
 
 	absRootDir := mustResolveRootDir(rootDir)
 	localFilesSvc := core.NewLocalFileService(absRootDir)
-	mcserverCmd := core.NewMCServerCmd(serverCmd, []string{}, rootDir, os.Stdout)
+	mcserverCmd := core.NewMCServerCmd(cmdPath, cmdArgs, rootDir, os.Stdout)
 	if fifoPath := cli.String(inputFifoFlag.Name); fifoPath != "" {
 		go fifoInputLoop(mcserverCmd, fifoPath)
 	}
@@ -199,6 +218,10 @@ func run(cli *cli.Context) error {
 		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
 		AllowHeaders: "*",
 	}))
+
+	if staticDir != "" {
+		router.Static("/", staticDir)
+	}
 	router.Get("/api/fs/*", fsHandler.Get)
 	router.Post("/api/fs/*", fsHandler.Post)
 	router.Put("/api/fs/*", fsHandler.Put)
@@ -210,12 +233,18 @@ func run(cli *cli.Context) error {
 	router.Post("/api/mc/stop", mcrunnerHandler.PostStopServer)
 	router.Post("/api/mc/restart", mcrunnerHandler.PostRestartServer)
 	router.Post("/api/mc/kill", mcrunnerHandler.PostKillServer)
+	router.Get("/readyz", func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
 	router.Get("/ws", wsUpgradeRequired, wsServer.ServeFiberWS())
 
 	// start the mcserver command
 	if err := mcserverCmd.Start(); err != nil {
 		return fmt.Errorf("failed to start Minecraft server command: %v", err)
 	}
+	go func() {
+		io.Copy(mcserverCmd, os.Stdin)
+	}()
 
 	// Handle signals: first triggers graceful shutdown, second forces exit
 	sigCh := make(chan os.Signal, 2)
