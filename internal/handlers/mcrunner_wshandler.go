@@ -48,3 +48,12 @@ func (h *mcrunnerWSHandler) WSHandlePTYInput(cl *websocket.Client, msg *gen.Mess
 	}
 	return nil
 }
+
+func (h *mcrunnerWSHandler) WSHandlePTYResize(cl *websocket.Client, msg *gen.Message) error {
+	ptyResize := msg.GetPtyResize()
+	if ptyResize != nil {
+		rows, cols := int(ptyResize.Rows), int(ptyResize.Cols)
+		return h.mcserver.ResizeWindow(rows, cols)
+	}
+	return nil
+}

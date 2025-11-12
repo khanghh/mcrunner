@@ -158,7 +158,7 @@ func (m *MCServerCmd) Start() error {
 	}
 
 	// Start the command with PTY
-	ptmx, err := pty.Start(cmd)
+	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: 80, Rows: 24})
 	if err != nil {
 		return err
 	}
@@ -186,6 +186,18 @@ func (m *MCServerCmd) Start() error {
 	}()
 
 	return nil
+}
+
+func (m *MCServerCmd) ResizeWindow(rows, cols int) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.ptmx == nil {
+		return os.ErrInvalid
+	}
+	return pty.Setsize(m.ptmx, &pty.Winsize{
+		Rows: uint16(rows),
+		Cols: uint16(cols),
+	})
 }
 
 func (m *MCServerCmd) OnStatusChanged(statusListener func(status ServerState)) {
