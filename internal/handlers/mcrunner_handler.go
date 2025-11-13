@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"os/exec"
+	"syscall"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -37,12 +39,17 @@ func (h *MCRunnerHandler) PostStartServer(ctx *fiber.Ctx) error {
 
 	return ctx.SendStatus(fiber.StatusOK)
 }
-
 func (h *MCRunnerHandler) PostStopServer(ctx *fiber.Ctx) error {
 	if h.mcserver.GetStatus() != core.StateRunning {
 		return ErrServerNotRunning
 	}
 	if err := h.mcserver.Stop(); err != nil {
+		// Check if the error is due to SIGTERM (exit code 143), which is expected during graceful shutdown
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok && status.ExitStatus() == 143 {
+				return ctx.SendStatus(fiber.StatusOK)
+			}
+		}
 		return InternalServerError(err)
 	}
 	return ctx.SendStatus(fiber.StatusOK)
@@ -53,6 +60,12 @@ func (h *MCRunnerHandler) PostRestartServer(ctx *fiber.Ctx) error {
 		return ErrServerNotRunning
 	}
 	if err := h.mcserver.Stop(); err != nil {
+		// Check if the error is due to SIGTERM (exit code 143), which is expected during graceful shutdown
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok && status.ExitStatus() == 143 {
+				return ctx.SendStatus(fiber.StatusOK)
+			}
+		}
 		return InternalServerError(err)
 	}
 	if err := h.mcserver.Start(); err != nil {
