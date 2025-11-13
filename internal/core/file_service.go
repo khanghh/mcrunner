@@ -189,6 +189,10 @@ func (s *LocalFileServiceImpl) SaveStream(rel string, r io.Reader, overwrite boo
 		os.Remove(tmp)
 		return closeErr
 	}
+	// Preserve destination's permissions if it exists
+	if fi, err := os.Stat(abs); err == nil {
+		_ = os.Chmod(tmp, fi.Mode().Perm())
+	}
 	return os.Rename(tmp, abs)
 }
 
