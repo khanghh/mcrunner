@@ -97,7 +97,14 @@ func (m *MCServerCmd) Stop() error {
 	m.status = StateStopping
 	m.mu.Unlock()
 	m.notifyStatusChanged(StateStopping)
-	return m.Wait()
+	err := m.Wait()
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		waitStatus, ok := exitErr.Sys().(syscall.WaitStatus)
+		if ok && waitStatus.ExitStatus() == 143 {
+			return nil
+		}
+	}
+	return err
 }
 
 // Signal sends a signal to the underlying Minecraft server process.
