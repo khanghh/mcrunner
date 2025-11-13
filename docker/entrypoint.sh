@@ -8,8 +8,9 @@ if [ -n "$TZ" ]; then
 fi
 
 # Prepare log file
-touch /minecraft/cron.log
-chmod 666 /minecraft/cron.log
+mkdir -p /minecraft/logs
+touch /minecraft/logs/cron.log
+chmod 666 /minecraft/logs/cron.log
 
 # Install crontab if provided
 if [ -f /minecraft/crontab ]; then
@@ -18,8 +19,8 @@ if [ -f /minecraft/crontab ]; then
     chmod 0644 /etc/cron.d/mcrunner
 fi
 
-# Redirect system cron logs to same file
-ln -sf /minecraft/cron.log /var/log/cron.log
+# Link system cron logs to minecraft/logs/cron.log
+ln -sf /minecraft/logs/cron.log /var/log/cron.log
 
 # Start cron in background
 crond
