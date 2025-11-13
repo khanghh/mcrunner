@@ -66,6 +66,7 @@ func init() {
 	app.Flags = []cli.Flag{
 		commandFlag,
 		rootDirFlag,
+		staticDirFlag,
 		inputFifoFlag,
 		listenFlag,
 	}
@@ -177,12 +178,11 @@ func run(cli *cli.Context) error {
 	if serverCmd == "" {
 		return fmt.Errorf("server command must not be empty")
 	}
-	cmdPath, cmdArgs := parseServerCmd(serverCmd)
-	fmt.Println("cmdPath", cmdPath)
-	fmt.Println("cmdArgs", cmdArgs)
 
 	absRootDir := mustResolveRootDir(rootDir)
 	localFilesSvc := core.NewLocalFileService(absRootDir)
+
+	cmdPath, cmdArgs := parseServerCmd(serverCmd)
 	mcserverCmd := core.NewMCServerCmd(cmdPath, cmdArgs, rootDir, os.Stdout)
 	if fifoPath := cli.String(inputFifoFlag.Name); fifoPath != "" {
 		go fifoInputLoop(mcserverCmd, fifoPath)

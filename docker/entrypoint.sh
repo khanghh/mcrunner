@@ -22,6 +22,7 @@ fi
 ln -sf /minecraft/cron.log /var/log/cron.log
 
 # Start cron in background
-cron
+crond
 
+echo "Starting mcrunner with args: $@"
 exec /usr/bin/mcrunner "$@"
