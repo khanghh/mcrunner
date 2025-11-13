@@ -212,6 +212,7 @@ func run(cli *cli.Context) error {
 	router := fiber.New(fiber.Config{
 		DisableStartupMessage: true,
 		ErrorHandler:          handlers.ErrorHandler,
+		BodyLimit:             256 * 1024 * 1024,
 	})
 	router.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
