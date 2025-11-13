@@ -32,9 +32,10 @@ const (
 	MessageType_PTY_OUTPUT MessageType = 102
 	MessageType_PTY_RESIZE MessageType = 103
 	// server action message types
-	MessageType_SERVER_START MessageType = 104
-	MessageType_SERVER_STOP  MessageType = 105
-	MessageType_SERVER_KILL  MessageType = 106
+	MessageType_SERVER_START  MessageType = 104
+	MessageType_SERVER_STOP   MessageType = 105
+	MessageType_SERVER_KILL   MessageType = 106
+	MessageType_SERVER_STATUS MessageType = 107
 )
 
 // Enum value maps for MessageType.
@@ -48,16 +49,18 @@ var (
 		104: "SERVER_START",
 		105: "SERVER_STOP",
 		106: "SERVER_KILL",
+		107: "SERVER_STATUS",
 	}
 	MessageType_value = map[string]int32{
-		"UNKNOWN":      0,
-		"ERROR":        1,
-		"PTY_INPUT":    101,
-		"PTY_OUTPUT":   102,
-		"PTY_RESIZE":   103,
-		"SERVER_START": 104,
-		"SERVER_STOP":  105,
-		"SERVER_KILL":  106,
+		"UNKNOWN":       0,
+		"ERROR":         1,
+		"PTY_INPUT":     101,
+		"PTY_OUTPUT":    102,
+		"PTY_RESIZE":    103,
+		"SERVER_START":  104,
+		"SERVER_STOP":   105,
+		"SERVER_KILL":   106,
+		"SERVER_STATUS": 107,
 	}
 )
 
@@ -513,7 +516,7 @@ const file_message_proto_rawDesc = "" +
 	"\aversion\x18\x05 \x01(\tR\aversion\"9\n" +
 	"\tErrorInfo\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage*\x88\x01\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage*\x9b\x01\n" +
 	"\vMessageType\x12\v\n" +
 	"\aUNKNOWN\x10\x00\x12\t\n" +
 	"\x05ERROR\x10\x01\x12\r\n" +
@@ -524,7 +527,8 @@ const file_message_proto_rawDesc = "" +
 	"PTY_RESIZE\x10g\x12\x10\n" +
 	"\fSERVER_START\x10h\x12\x0f\n" +
 	"\vSERVER_STOP\x10i\x12\x0f\n" +
-	"\vSERVER_KILL\x10j*5\n" +
+	"\vSERVER_KILL\x10j\x12\x11\n" +
+	"\rSERVER_STATUS\x10k*5\n" +
 	"\vServerState\x12\v\n" +
 	"\aSTOPPED\x10\x00\x12\v\n" +
 	"\aRUNNING\x10\x01\x12\f\n" +
