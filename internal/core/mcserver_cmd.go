@@ -12,13 +12,13 @@ import (
 	"github.com/creack/pty"
 )
 
-// ServerState represents the current server status
-type ServerState string
+// ServerStatus represents the current server status
+type ServerStatus string
 
 const (
-	StateRunning  ServerState = "running"
-	StateStopping ServerState = "stopping"
-	StateStopped  ServerState = "stopped"
+	StatusRunning  ServerStatus = "running"
+	StatusStopping ServerStatus = "stopping"
+	StatusStopped  ServerStatus = "stopped"
 )
 
 type MCServerCmd struct {
@@ -38,9 +38,9 @@ type MCServerCmd struct {
 	done      chan struct{}
 	err       error
 	startTime *time.Time
-	status    ServerState
+	status    ServerStatus
 
-	notifyStatusChanged func(status ServerState)
+	notifyStatusChanged func(status ServerStatus)
 }
 
 // NewMCServerCmd creates a new MCServerCmd instance with proper initialization.
@@ -53,7 +53,7 @@ func NewMCServerCmd(cmdPath string, cmdArgs []string, runDir string, stdout io.W
 		stream:       stream,
 		outputWriter: io.MultiWriter(stdout, stream),
 		done:         make(chan struct{}),
-		status:       StateStopped,
+		status:       StatusStopped,
 	}
 }
 
@@ -84,7 +84,7 @@ func (m *MCServerCmd) Read(p []byte) (int, error) {
 // Wait blocks until the Minecraft server process exits.
 func (m *MCServerCmd) Wait() error {
 	<-m.done
-	m.notifyStatusChanged(StateStopped)
+	m.notifyStatusChanged(StatusStopped)
 	return m.err
 }
 
@@ -94,9 +94,9 @@ func (m *MCServerCmd) Stop() error {
 		return err
 	}
 	m.mu.Lock()
-	m.status = StateStopping
+	m.status = StatusStopping
 	m.mu.Unlock()
-	m.notifyStatusChanged(StateStopping)
+	m.notifyStatusChanged(StatusStopping)
 	err := m.Wait()
 	if exitErr, ok := err.(*exec.ExitError); ok {
 		waitStatus, ok := exitErr.Sys().(syscall.WaitStatus)
@@ -122,7 +122,7 @@ func (m *MCServerCmd) Kill() error {
 	if m.cmd == nil || m.cmd.Process == nil {
 		return os.ErrInvalid
 	}
-	defer m.notifyStatusChanged(StateStopped)
+	defer m.notifyStatusChanged(StatusStopped)
 	return m.cmd.Process.Kill()
 }
 
@@ -131,7 +131,7 @@ func (m *MCServerCmd) OutputStream() io.Reader {
 }
 
 // GetStatus returns the current server status
-func (m *MCServerCmd) GetStatus() ServerState {
+func (m *MCServerCmd) GetStatus() ServerStatus {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.status
@@ -172,12 +172,11 @@ func (m *MCServerCmd) Start() error {
 
 	m.cmd = cmd
 	m.ptmx = ptmx
-	m.status = StateRunning
+	m.status = StatusRunning
 	now := time.Now()
 	m.startTime = &now
 	m.done = make(chan struct{})
-	defer m.notifyStatusChanged(StateRunning)
-
+	defer m.notifyStatusChanged(StatusRunning)
 	go io.Copy(m.outputWriter, ptmx)
 
 	// Wait for command to finish
@@ -185,11 +184,11 @@ func (m *MCServerCmd) Start() error {
 		mErr := cmd.Wait()
 		m.mu.Lock()
 		m.err = mErr
-		m.status = StateStopped
+		m.status = StatusStopped
 		ptmx.Close()
 		close(m.done)
 		m.mu.Unlock()
-		m.notifyStatusChanged(StateStopped)
+		m.notifyStatusChanged(StatusStopped)
 	}()
 
 	return nil
@@ -207,6 +206,6 @@ func (m *MCServerCmd) ResizeWindow(rows, cols int) error {
 	})
 }
 
-func (m *MCServerCmd) OnStatusChanged(statusListener func(status ServerState)) {
+func (m *MCServerCmd) OnStatusChanged(statusListener func(status ServerStatus)) {
 	m.notifyStatusChanged = statusListener
 }

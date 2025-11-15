@@ -14,16 +14,16 @@ enum MessageType {
   PTY_RESIZE = 103;
 
   // server action message types
-  SERVER_START = 104;
-  SERVER_STOP = 105;
-  SERVER_KILL = 106;
-  SERVER_STATUS = 107;
+  SERVER_STATE = 200;
+  SERVER_START = 201;
+  SERVER_STOP = 202;
+  SERVER_KILL = 203;
 }
 
-enum ServerState {
-  STOPPED = 0;
-  RUNNING = 1;
-  STOPPING = 2;
+enum ServerStatus {
+  STOPPED = 1;
+  RUNNING = 2;
+  STOPPING = 3;
 }
 
 message Message {
@@ -32,7 +32,7 @@ message Message {
     ErrorInfo error = 2;
     PtyBuffer pty_buffer = 3;
     PtyResize pty_resize = 4;
-    ServerStatus server_status = 5;
+    ServerState server_state = 5;
   }
 }
 
@@ -45,12 +45,15 @@ message PtyResize {
   uint32 rows = 2;
 }
 
-message ServerStatus {
-  ServerState state = 1;
-  int32 pid = 2;
-  int64 uptime = 3;
-  int64 players = 4;
-  string version = 5;
+message ServerState {
+  ServerStatus status = 1;
+  float tps = 2;
+  int32 pid = 3;
+  int64 memory_usage = 4;
+  int64 memory_limit = 5;
+  double cpu_usage = 6;
+  double cpu_limit = 7;
+  int64 uptime_sec = 8;
 }
 
 message ErrorInfo {

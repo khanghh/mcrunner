@@ -38,47 +38,20 @@ type APIError struct {
 	Detail  string `json:"detail,omitempty"`
 }
 
-// StatusResponse represents the server status response
-type StatusResponse struct {
-	Status    ServerStatus `json:"status"`
-	Pid       int          `json:"pid,omitempty"`
-	Uptime    *Duration    `json:"uptime,omitempty"`
-	StartTime *time.Time   `json:"startTime,omitempty"`
+// ServerState represents the server status response
+type ServerState struct {
+	Status      ServerStatus `json:"status"`                // current server status
+	TPS         float64      `json:"tps"`                   // ticks per second
+	PID         int          `json:"pid,omitempty"`         // process ID
+	MemoryUsage *uint64      `json:"memoryUsage,omitempty"` // current memory usage
+	MemoryLimit *uint64      `json:"memoryLimit,omitempty"` // max allowed memory (0 = unlimited)
+	CPUUsage    *float64     `json:"cpuUsage,omitempty"`    // current CPU usage %
+	CPULimit    *float64     `json:"cpuLimit,omitempty"`    // max CPUs allowed
+	UptimeSec   uint64       `json:"uptimeSec,omitempty"`   // server uptime in seconds
 }
 
-// CommandRequest represents a command request
 type CommandRequest struct {
 	Command string `json:"command"`
-}
-
-// Duration is a custom duration type for JSON marshaling
-type Duration time.Duration
-
-// MarshalJSON implements json.Marshaler for Duration
-func (d Duration) MarshalJSON() ([]byte, error) {
-	return json.Marshal(time.Duration(d).String())
-}
-
-// UnmarshalJSON implements json.Unmarshaler for Duration
-func (d *Duration) UnmarshalJSON(data []byte) error {
-	// Accept either a string duration (e.g., "1h2m3s") or a numeric nanoseconds value
-	// Try string first
-	var s string
-	if err := json.Unmarshal(data, &s); err == nil {
-		duration, err := time.ParseDuration(s)
-		if err != nil {
-			return err
-		}
-		*d = Duration(duration)
-		return nil
-	}
-	// Fallback to numeric (assumed nanoseconds)
-	var ns int64
-	if err := json.Unmarshal(data, &ns); err == nil {
-		*d = Duration(time.Duration(ns))
-		return nil
-	}
-	return fmt.Errorf("invalid duration format: %s", string(data))
 }
 
 // NewMCRunnerAPI creates a new MCRunner API client
@@ -96,9 +69,9 @@ func (m *MCRunnerAPI) SetHTTPClient(client *http.Client) {
 	m.httpClient = client
 }
 
-// GetStatus retrieves the current server status
-func (m *MCRunnerAPI) GetStatus(ctx context.Context) (*StatusResponse, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", m.baseURL+"/status", nil)
+// GetServerState retrieves the current server status
+func (m *MCRunnerAPI) GetServerState(ctx context.Context) (*ServerState, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", m.baseURL+"/state", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +83,8 @@ func (m *MCRunnerAPI) GetStatus(ctx context.Context) (*StatusResponse, error) {
 
 	// Decode into a lightweight struct to avoid re-marshal cycle
 	tmp := struct {
-		Data  *StatusResponse `json:"data"`
-		Error *APIError       `json:"error"`
+		Data  *ServerState `json:"data"`
+		Error *APIError    `json:"error"`
 	}{}
 	if err := json.NewDecoder(resp.Body).Decode(&tmp); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %v", err)

@@ -32,10 +32,10 @@ const (
 	MessageType_PTY_OUTPUT MessageType = 102
 	MessageType_PTY_RESIZE MessageType = 103
 	// server action message types
-	MessageType_SERVER_START  MessageType = 104
-	MessageType_SERVER_STOP   MessageType = 105
-	MessageType_SERVER_KILL   MessageType = 106
-	MessageType_SERVER_STATUS MessageType = 107
+	MessageType_SERVER_STATE MessageType = 200
+	MessageType_SERVER_START MessageType = 201
+	MessageType_SERVER_STOP  MessageType = 202
+	MessageType_SERVER_KILL  MessageType = 203
 )
 
 // Enum value maps for MessageType.
@@ -46,21 +46,21 @@ var (
 		101: "PTY_INPUT",
 		102: "PTY_OUTPUT",
 		103: "PTY_RESIZE",
-		104: "SERVER_START",
-		105: "SERVER_STOP",
-		106: "SERVER_KILL",
-		107: "SERVER_STATUS",
+		200: "SERVER_STATE",
+		201: "SERVER_START",
+		202: "SERVER_STOP",
+		203: "SERVER_KILL",
 	}
 	MessageType_value = map[string]int32{
-		"UNKNOWN":       0,
-		"ERROR":         1,
-		"PTY_INPUT":     101,
-		"PTY_OUTPUT":    102,
-		"PTY_RESIZE":    103,
-		"SERVER_START":  104,
-		"SERVER_STOP":   105,
-		"SERVER_KILL":   106,
-		"SERVER_STATUS": 107,
+		"UNKNOWN":      0,
+		"ERROR":        1,
+		"PTY_INPUT":    101,
+		"PTY_OUTPUT":   102,
+		"PTY_RESIZE":   103,
+		"SERVER_STATE": 200,
+		"SERVER_START": 201,
+		"SERVER_STOP":  202,
+		"SERVER_KILL":  203,
 	}
 )
 
@@ -91,52 +91,52 @@ func (MessageType) EnumDescriptor() ([]byte, []int) {
 	return file_message_proto_rawDescGZIP(), []int{0}
 }
 
-type ServerState int32
+type ServerStatus int32
 
 const (
-	ServerState_STOPPED  ServerState = 0
-	ServerState_RUNNING  ServerState = 1
-	ServerState_STOPPING ServerState = 2
+	ServerStatus_STOPPED  ServerStatus = 0
+	ServerStatus_RUNNING  ServerStatus = 1
+	ServerStatus_STOPPING ServerStatus = 2
 )
 
-// Enum value maps for ServerState.
+// Enum value maps for ServerStatus.
 var (
-	ServerState_name = map[int32]string{
+	ServerStatus_name = map[int32]string{
 		0: "STOPPED",
 		1: "RUNNING",
 		2: "STOPPING",
 	}
-	ServerState_value = map[string]int32{
+	ServerStatus_value = map[string]int32{
 		"STOPPED":  0,
 		"RUNNING":  1,
 		"STOPPING": 2,
 	}
 )
 
-func (x ServerState) Enum() *ServerState {
-	p := new(ServerState)
+func (x ServerStatus) Enum() *ServerStatus {
+	p := new(ServerStatus)
 	*p = x
 	return p
 }
 
-func (x ServerState) String() string {
+func (x ServerStatus) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (ServerState) Descriptor() protoreflect.EnumDescriptor {
+func (ServerStatus) Descriptor() protoreflect.EnumDescriptor {
 	return file_message_proto_enumTypes[1].Descriptor()
 }
 
-func (ServerState) Type() protoreflect.EnumType {
+func (ServerStatus) Type() protoreflect.EnumType {
 	return &file_message_proto_enumTypes[1]
 }
 
-func (x ServerState) Number() protoreflect.EnumNumber {
+func (x ServerStatus) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use ServerState.Descriptor instead.
-func (ServerState) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use ServerStatus.Descriptor instead.
+func (ServerStatus) EnumDescriptor() ([]byte, []int) {
 	return file_message_proto_rawDescGZIP(), []int{1}
 }
 
@@ -148,7 +148,7 @@ type Message struct {
 	//	*Message_Error
 	//	*Message_PtyBuffer
 	//	*Message_PtyResize
-	//	*Message_ServerStatus
+	//	*Message_ServerState
 	Payload       isMessage_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -225,10 +225,10 @@ func (x *Message) GetPtyResize() *PtyResize {
 	return nil
 }
 
-func (x *Message) GetServerStatus() *ServerStatus {
+func (x *Message) GetServerState() *ServerState {
 	if x != nil {
-		if x, ok := x.Payload.(*Message_ServerStatus); ok {
-			return x.ServerStatus
+		if x, ok := x.Payload.(*Message_ServerState); ok {
+			return x.ServerState
 		}
 	}
 	return nil
@@ -250,8 +250,8 @@ type Message_PtyResize struct {
 	PtyResize *PtyResize `protobuf:"bytes,4,opt,name=pty_resize,json=ptyResize,proto3,oneof"`
 }
 
-type Message_ServerStatus struct {
-	ServerStatus *ServerStatus `protobuf:"bytes,5,opt,name=server_status,json=serverStatus,proto3,oneof"`
+type Message_ServerState struct {
+	ServerState *ServerState `protobuf:"bytes,5,opt,name=server_state,json=serverState,proto3,oneof"`
 }
 
 func (*Message_Error) isMessage_Payload() {}
@@ -260,7 +260,7 @@ func (*Message_PtyBuffer) isMessage_Payload() {}
 
 func (*Message_PtyResize) isMessage_Payload() {}
 
-func (*Message_ServerStatus) isMessage_Payload() {}
+func (*Message_ServerState) isMessage_Payload() {}
 
 type PtyBuffer struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -358,31 +358,34 @@ func (x *PtyResize) GetRows() uint32 {
 	return 0
 }
 
-type ServerStatus struct {
+type ServerState struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	State         ServerState            `protobuf:"varint,1,opt,name=state,proto3,enum=ServerState" json:"state,omitempty"`
-	Pid           int32                  `protobuf:"varint,2,opt,name=pid,proto3" json:"pid,omitempty"`
-	Uptime        int64                  `protobuf:"varint,3,opt,name=uptime,proto3" json:"uptime,omitempty"`
-	Players       int64                  `protobuf:"varint,4,opt,name=players,proto3" json:"players,omitempty"`
-	Version       string                 `protobuf:"bytes,5,opt,name=version,proto3" json:"version,omitempty"`
+	Status        ServerStatus           `protobuf:"varint,1,opt,name=status,proto3,enum=ServerStatus" json:"status,omitempty"`
+	Tps           float32                `protobuf:"fixed32,2,opt,name=tps,proto3" json:"tps,omitempty"`
+	Pid           int32                  `protobuf:"varint,3,opt,name=pid,proto3" json:"pid,omitempty"`
+	MemoryUsage   int64                  `protobuf:"varint,4,opt,name=memory_usage,json=memoryUsage,proto3" json:"memory_usage,omitempty"`
+	MemoryLimit   int64                  `protobuf:"varint,5,opt,name=memory_limit,json=memoryLimit,proto3" json:"memory_limit,omitempty"`
+	CpuUsage      float64                `protobuf:"fixed64,6,opt,name=cpu_usage,json=cpuUsage,proto3" json:"cpu_usage,omitempty"`
+	CpuLimit      float64                `protobuf:"fixed64,7,opt,name=cpu_limit,json=cpuLimit,proto3" json:"cpu_limit,omitempty"`
+	UptimeSec     int64                  `protobuf:"varint,8,opt,name=uptime_sec,json=uptimeSec,proto3" json:"uptime_sec,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ServerStatus) Reset() {
-	*x = ServerStatus{}
+func (x *ServerState) Reset() {
+	*x = ServerState{}
 	mi := &file_message_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ServerStatus) String() string {
+func (x *ServerState) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ServerStatus) ProtoMessage() {}
+func (*ServerState) ProtoMessage() {}
 
-func (x *ServerStatus) ProtoReflect() protoreflect.Message {
+func (x *ServerState) ProtoReflect() protoreflect.Message {
 	mi := &file_message_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -394,44 +397,65 @@ func (x *ServerStatus) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ServerStatus.ProtoReflect.Descriptor instead.
-func (*ServerStatus) Descriptor() ([]byte, []int) {
+// Deprecated: Use ServerState.ProtoReflect.Descriptor instead.
+func (*ServerState) Descriptor() ([]byte, []int) {
 	return file_message_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *ServerStatus) GetState() ServerState {
+func (x *ServerState) GetStatus() ServerStatus {
 	if x != nil {
-		return x.State
+		return x.Status
 	}
-	return ServerState_STOPPED
+	return ServerStatus_STOPPED
 }
 
-func (x *ServerStatus) GetPid() int32 {
+func (x *ServerState) GetTps() float32 {
+	if x != nil {
+		return x.Tps
+	}
+	return 0
+}
+
+func (x *ServerState) GetPid() int32 {
 	if x != nil {
 		return x.Pid
 	}
 	return 0
 }
 
-func (x *ServerStatus) GetUptime() int64 {
+func (x *ServerState) GetMemoryUsage() int64 {
 	if x != nil {
-		return x.Uptime
+		return x.MemoryUsage
 	}
 	return 0
 }
 
-func (x *ServerStatus) GetPlayers() int64 {
+func (x *ServerState) GetMemoryLimit() int64 {
 	if x != nil {
-		return x.Players
+		return x.MemoryLimit
 	}
 	return 0
 }
 
-func (x *ServerStatus) GetVersion() string {
+func (x *ServerState) GetCpuUsage() float64 {
 	if x != nil {
-		return x.Version
+		return x.CpuUsage
 	}
-	return ""
+	return 0
+}
+
+func (x *ServerState) GetCpuLimit() float64 {
+	if x != nil {
+		return x.CpuLimit
+	}
+	return 0
+}
+
+func (x *ServerState) GetUptimeSec() int64 {
+	if x != nil {
+		return x.UptimeSec
+	}
+	return 0
 }
 
 type ErrorInfo struct {
@@ -490,7 +514,7 @@ var File_message_proto protoreflect.FileDescriptor
 
 const file_message_proto_rawDesc = "" +
 	"\n" +
-	"\rmessage.proto\"\xea\x01\n" +
+	"\rmessage.proto\"\xe7\x01\n" +
 	"\aMessage\x12 \n" +
 	"\x04type\x18\x01 \x01(\x0e2\f.MessageTypeR\x04type\x12\"\n" +
 	"\x05error\x18\x02 \x01(\v2\n" +
@@ -500,23 +524,27 @@ const file_message_proto_rawDesc = "" +
 	".PtyBufferH\x00R\tptyBuffer\x12+\n" +
 	"\n" +
 	"pty_resize\x18\x04 \x01(\v2\n" +
-	".PtyResizeH\x00R\tptyResize\x124\n" +
-	"\rserver_status\x18\x05 \x01(\v2\r.ServerStatusH\x00R\fserverStatusB\t\n" +
+	".PtyResizeH\x00R\tptyResize\x121\n" +
+	"\fserver_state\x18\x05 \x01(\v2\f.ServerStateH\x00R\vserverStateB\t\n" +
 	"\apayload\"\x1f\n" +
 	"\tPtyBuffer\x12\x12\n" +
 	"\x04data\x18\x01 \x01(\fR\x04data\"3\n" +
 	"\tPtyResize\x12\x12\n" +
 	"\x04cols\x18\x01 \x01(\rR\x04cols\x12\x12\n" +
-	"\x04rows\x18\x02 \x01(\rR\x04rows\"\x90\x01\n" +
-	"\fServerStatus\x12\"\n" +
-	"\x05state\x18\x01 \x01(\x0e2\f.ServerStateR\x05state\x12\x10\n" +
-	"\x03pid\x18\x02 \x01(\x05R\x03pid\x12\x16\n" +
-	"\x06uptime\x18\x03 \x01(\x03R\x06uptime\x12\x18\n" +
-	"\aplayers\x18\x04 \x01(\x03R\aplayers\x12\x18\n" +
-	"\aversion\x18\x05 \x01(\tR\aversion\"9\n" +
+	"\x04rows\x18\x02 \x01(\rR\x04rows\"\xf7\x01\n" +
+	"\vServerState\x12%\n" +
+	"\x06status\x18\x01 \x01(\x0e2\r.ServerStatusR\x06status\x12\x10\n" +
+	"\x03tps\x18\x02 \x01(\x02R\x03tps\x12\x10\n" +
+	"\x03pid\x18\x03 \x01(\x05R\x03pid\x12!\n" +
+	"\fmemory_usage\x18\x04 \x01(\x03R\vmemoryUsage\x12!\n" +
+	"\fmemory_limit\x18\x05 \x01(\x03R\vmemoryLimit\x12\x1b\n" +
+	"\tcpu_usage\x18\x06 \x01(\x01R\bcpuUsage\x12\x1b\n" +
+	"\tcpu_limit\x18\a \x01(\x01R\bcpuLimit\x12\x1d\n" +
+	"\n" +
+	"uptime_sec\x18\b \x01(\x03R\tuptimeSec\"9\n" +
 	"\tErrorInfo\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage*\x9b\x01\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage*\x9e\x01\n" +
 	"\vMessageType\x12\v\n" +
 	"\aUNKNOWN\x10\x00\x12\t\n" +
 	"\x05ERROR\x10\x01\x12\r\n" +
@@ -524,12 +552,12 @@ const file_message_proto_rawDesc = "" +
 	"\n" +
 	"PTY_OUTPUT\x10f\x12\x0e\n" +
 	"\n" +
-	"PTY_RESIZE\x10g\x12\x10\n" +
-	"\fSERVER_START\x10h\x12\x0f\n" +
-	"\vSERVER_STOP\x10i\x12\x0f\n" +
-	"\vSERVER_KILL\x10j\x12\x11\n" +
-	"\rSERVER_STATUS\x10k*5\n" +
-	"\vServerState\x12\v\n" +
+	"PTY_RESIZE\x10g\x12\x11\n" +
+	"\fSERVER_STATE\x10\xc8\x01\x12\x11\n" +
+	"\fSERVER_START\x10\xc9\x01\x12\x10\n" +
+	"\vSERVER_STOP\x10\xca\x01\x12\x10\n" +
+	"\vSERVER_KILL\x10\xcb\x01*6\n" +
+	"\fServerStatus\x12\v\n" +
 	"\aSTOPPED\x10\x00\x12\v\n" +
 	"\aRUNNING\x10\x01\x12\f\n" +
 	"\bSTOPPING\x10\x02B,Z*github.com/khang/mcrunner/internal/gen;genb\x06proto3"
@@ -549,21 +577,21 @@ func file_message_proto_rawDescGZIP() []byte {
 var file_message_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_message_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_message_proto_goTypes = []any{
-	(MessageType)(0),     // 0: MessageType
-	(ServerState)(0),     // 1: ServerState
-	(*Message)(nil),      // 2: Message
-	(*PtyBuffer)(nil),    // 3: PtyBuffer
-	(*PtyResize)(nil),    // 4: PtyResize
-	(*ServerStatus)(nil), // 5: ServerStatus
-	(*ErrorInfo)(nil),    // 6: ErrorInfo
+	(MessageType)(0),    // 0: MessageType
+	(ServerStatus)(0),   // 1: ServerStatus
+	(*Message)(nil),     // 2: Message
+	(*PtyBuffer)(nil),   // 3: PtyBuffer
+	(*PtyResize)(nil),   // 4: PtyResize
+	(*ServerState)(nil), // 5: ServerState
+	(*ErrorInfo)(nil),   // 6: ErrorInfo
 }
 var file_message_proto_depIdxs = []int32{
 	0, // 0: Message.type:type_name -> MessageType
 	6, // 1: Message.error:type_name -> ErrorInfo
 	3, // 2: Message.pty_buffer:type_name -> PtyBuffer
 	4, // 3: Message.pty_resize:type_name -> PtyResize
-	5, // 4: Message.server_status:type_name -> ServerStatus
-	1, // 5: ServerStatus.state:type_name -> ServerState
+	5, // 4: Message.server_state:type_name -> ServerState
+	1, // 5: ServerState.status:type_name -> ServerStatus
 	6, // [6:6] is the sub-list for method output_type
 	6, // [6:6] is the sub-list for method input_type
 	6, // [6:6] is the sub-list for extension type_name
@@ -580,7 +608,7 @@ func file_message_proto_init() {
 		(*Message_Error)(nil),
 		(*Message_PtyBuffer)(nil),
 		(*Message_PtyResize)(nil),
-		(*Message_ServerStatus)(nil),
+		(*Message_ServerState)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"time"
-
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -24,12 +22,16 @@ const (
 	StatusStopped  ServerStatus = "stopped"
 )
 
-// StatusResponse represents the server status response
-type StatusResponse struct {
-	Status    ServerStatus   `json:"status"`
-	PID       int            `json:"pid,omitempty"`
-	Uptime    *time.Duration `json:"uptime,omitempty"`
-	StartTime *time.Time     `json:"startTime,omitempty"`
+// ServerState represents the server status response
+type ServerState struct {
+	Status      ServerStatus `json:"status"`                // current server status
+	TPS         float64      `json:"tps"`                   // ticks per second
+	PID         int          `json:"pid,omitempty"`         // process ID
+	MemoryUsage *uint64      `json:"memoryUsage,omitempty"` // current memory usage
+	MemoryLimit *uint64      `json:"memoryLimit,omitempty"` // max allowed memory (0 = unlimited)
+	CPUUsage    *float64     `json:"cpuUsage,omitempty"`    // current CPU usage %
+	CPULimit    *float64     `json:"cpuLimit,omitempty"`    // max CPUs allowed
+	UptimeSec   *int64       `json:"uptimeSec,omitempty"`   // server uptime in seconds
 }
 
 // CommandRequest represents a command request

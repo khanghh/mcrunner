@@ -5,11 +5,37 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/khanghh/mcrunner/internal/core"
+	"github.com/khanghh/mcrunner/pkg/api"
 )
 
 type MCRunnerHandler struct {
 	mcserver *core.MCServerCmd
 	*mcrunnerWSHandler
+}
+
+func (h *mcrunnerWSHandler) getServerState() api.ServerState {
+	status := h.mcserver.GetStatus()
+	serverState := api.ServerState{
+		Status: api.ServerStatus(status),
+	}
+	usage, err := core.GetServerUsage()
+	if err != nil {
+		return serverState
+	}
+	serverState.MemoryUsage = &usage.MemoryUsage
+	serverState.MemoryLimit = &usage.MemoryLimit
+	serverState.CPUUsage = &usage.CPUUsage
+	serverState.CPULimit = &usage.CPULimit
+
+	process := h.mcserver.GetProcess()
+	if process == nil {
+		return serverState
+	}
+	if startTime := h.mcserver.GetStartTime(); startTime != nil {
+		serverState.UptimeSec = uint64(time.Now().Sub(*startTime).Seconds())
+	}
+	serverState.PID = process.Pid
+	return serverState
 }
 
 func (h *MCRunnerHandler) PostCommand(ctx *fiber.Ctx) error {
@@ -27,7 +53,7 @@ func (h *MCRunnerHandler) PostCommand(ctx *fiber.Ctx) error {
 }
 
 func (h *MCRunnerHandler) PostStartServer(ctx *fiber.Ctx) error {
-	if h.mcserver.GetStatus() == core.StateRunning {
+	if h.mcserver.GetStatus() == core.StatusRunning {
 		return ErrServerAlreadyRunning
 	}
 	h.buffer.Reset()
@@ -39,7 +65,7 @@ func (h *MCRunnerHandler) PostStartServer(ctx *fiber.Ctx) error {
 }
 
 func (h *MCRunnerHandler) PostStopServer(ctx *fiber.Ctx) error {
-	if h.mcserver.GetStatus() != core.StateRunning {
+	if h.mcserver.GetStatus() != core.StatusRunning {
 		return ErrServerNotRunning
 	}
 	if err := h.mcserver.Stop(); err != nil {
@@ -49,7 +75,7 @@ func (h *MCRunnerHandler) PostStopServer(ctx *fiber.Ctx) error {
 }
 
 func (h *MCRunnerHandler) PostRestartServer(ctx *fiber.Ctx) error {
-	if h.mcserver.GetStatus() != core.StateRunning {
+	if h.mcserver.GetStatus() != core.StatusRunning {
 		return ErrServerNotRunning
 	}
 	if err := h.mcserver.Stop(); err != nil {
@@ -62,7 +88,7 @@ func (h *MCRunnerHandler) PostRestartServer(ctx *fiber.Ctx) error {
 }
 
 func (h *MCRunnerHandler) PostKillServer(ctx *fiber.Ctx) error {
-	if h.mcserver.GetStatus() != core.StateRunning {
+	if h.mcserver.GetStatus() != core.StatusRunning {
 		return ErrServerNotRunning
 	}
 	if err := h.mcserver.Kill(); err != nil {
@@ -71,30 +97,9 @@ func (h *MCRunnerHandler) PostKillServer(ctx *fiber.Ctx) error {
 	return ctx.SendStatus(fiber.StatusOK)
 }
 
-func (h *MCRunnerHandler) GetStatus(ctx *fiber.Ctx) error {
-	status := h.mcserver.GetStatus()
-	startTime := h.mcserver.GetStartTime()
-
-	var pid int
-	var uptime *time.Duration
-
-	if status == core.StateRunning && h.mcserver.GetProcess() != nil {
-		pid = h.mcserver.GetProcess().Pid
-		if startTime != nil {
-			uptimeDuration := time.Since(*startTime)
-			uptime = &uptimeDuration
-		}
-	}
-
-	response := StatusResponse{
-		Status:    ServerStatus(status),
-		PID:       pid,
-		Uptime:    uptime,
-		StartTime: startTime,
-	}
-
+func (h *MCRunnerHandler) GetState(ctx *fiber.Ctx) error {
 	return ctx.JSON(APIResponse{
-		Data: response,
+		Data: h.getServerState(),
 	})
 }
 

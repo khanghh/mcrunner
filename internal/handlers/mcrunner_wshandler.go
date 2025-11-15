@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"time"
+
 	"github.com/khanghh/mcrunner/internal/core"
 	"github.com/khanghh/mcrunner/internal/websocket"
 	"github.com/khanghh/mcrunner/pkg/gen"
@@ -12,14 +14,50 @@ type mcrunnerWSHandler struct {
 }
 
 func (h *mcrunnerWSHandler) WSOnClientConnect(cl *websocket.Client) error {
-	msg := gen.NewPTYOutputMessage(h.buffer.Snapshot())
+	msg := NewPTYOutputMessage(h.buffer.Snapshot())
 	return cl.SendMessage(msg)
 }
 
-func (h *mcrunnerWSHandler) WSBroadcast(broadcastCh chan *gen.Message, done chan struct{}) {
-	h.mcserver.OnStatusChanged(func(state core.ServerState) {
-		broadcastCh <- NewServerStatusMessage(state)
+func (h *mcrunnerWSHandler) getServerStateMessage() *gen.Message {
+	status := h.mcserver.GetStatus()
+	pid := 0
+	if process := h.mcserver.GetProcess(); process != nil {
+		pid = process.Pid
+	}
+	uptimeSec := int64(0)
+	if startTime := h.mcserver.GetStartTime(); startTime != nil {
+		uptimeSec = int64(time.Since(*startTime).Seconds())
+	}
+	usage, err := core.GetServerUsage()
+	if err != nil {
+		usage = &core.ServerUsage{}
+	}
+	return NewServerStateMessage(status, pid, 0, uptimeSec, *usage)
+}
+
+func (h *mcrunnerWSHandler) broadcastServerState(broadcastCh chan *gen.Message, done chan struct{}) {
+	statusCh := make(chan core.ServerStatus)
+	h.mcserver.OnStatusChanged(func(status core.ServerStatus) {
+		statusCh <- status
 	})
+
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				broadcastCh <- h.getServerStateMessage()
+			case <-statusCh:
+				broadcastCh <- h.getServerStateMessage()
+			case <-done:
+				return
+			}
+		}
+	}()
+}
+
+func (h *mcrunnerWSHandler) broadcastPTYOutput(broadcastCh chan *gen.Message, done chan struct{}) {
 	stream := h.mcserver.OutputStream()
 	buf := make([]byte, 4096)
 	for {
@@ -31,13 +69,18 @@ func (h *mcrunnerWSHandler) WSBroadcast(broadcastCh chan *gen.Message, done chan
 		copy(data, buf[:n])
 
 		h.buffer.Write(data)
-		msg := gen.NewPTYOutputMessage(data)
+		msg := NewPTYOutputMessage(data)
 		select {
 		case broadcastCh <- msg:
 		case <-done:
 			return
 		}
 	}
+}
+
+func (h *mcrunnerWSHandler) WSBroadcast(broadcastCh chan *gen.Message, done chan struct{}) {
+	go h.broadcastServerState(broadcastCh, done)
+	h.broadcastPTYOutput(broadcastCh, done)
 }
 
 func (h *mcrunnerWSHandler) WSHandlePTYInput(cl *websocket.Client, msg *gen.Message) error {

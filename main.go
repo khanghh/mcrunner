@@ -116,7 +116,7 @@ func fifoInputLoop(mcserverCmd *core.MCServerCmd, fifoPath string) {
 		buf := make([]byte, 4096)
 		for {
 			n, readErr := fifoFile.Read(buf)
-			if n > 0 && mcserverCmd.GetStatus() == core.StateRunning {
+			if n > 0 && mcserverCmd.GetStatus() == core.StatusRunning {
 				if _, wErr := mcserverCmd.Write(buf[:n]); wErr != nil {
 					fmt.Fprintf(os.Stderr, "write stdin failed: %v\n", wErr)
 				}
@@ -228,7 +228,7 @@ func run(cli *cli.Context) error {
 	router.Put("/api/fs/*", fsHandler.Put)
 	router.Patch("/api/fs/*", fsHandler.Patch)
 	router.Delete("/api/fs/*", fsHandler.Delete)
-	router.Get("/api/mc/status", mcrunnerHandler.GetStatus)
+	router.Get("/api/mc/state", mcrunnerHandler.GetState)
 	router.Post("/api/mc/command", mcrunnerHandler.PostCommand)
 	router.Post("/api/mc/start", mcrunnerHandler.PostStartServer)
 	router.Post("/api/mc/stop", mcrunnerHandler.PostStopServer)

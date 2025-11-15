@@ -24,6 +24,6 @@ type MCManagerService interface {
 	StopServer() error
 	KillServer() error
 	RestartServer() error
-	ServerStatus() *ServerState
+	ServerStatus() *ServerStatus
 	AttachConsole() (io.ReadWriteCloser, error)
 }
