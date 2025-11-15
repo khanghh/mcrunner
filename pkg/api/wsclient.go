@@ -3,7 +3,6 @@ package api
 import (
 	"io"
 	"log"
-	"net/url"
 
 	fws "github.com/fasthttp/websocket"
 )
@@ -16,21 +15,8 @@ type WebsocketClient struct {
 }
 
 // NewWebsocketClient creates a new WebSocket reader for the given URL
-func NewWebsocketClient(wsURL string) (*WebsocketClient, error) {
-	u, err := url.Parse(wsURL)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert http/https to ws/wss
-	switch u.Scheme {
-	case "http":
-		u.Scheme = "ws"
-	case "https":
-		u.Scheme = "wss"
-	}
-
-	conn, _, err := fws.DefaultDialer.Dial(u.String(), nil)
+func DialWebsocket(wsURL string) (*WebsocketClient, error) {
+	conn, _, err := fws.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		return nil, err
 	}
