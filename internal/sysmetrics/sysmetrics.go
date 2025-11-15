@@ -1,4 +1,4 @@
-package core
+package sysmetrics
 
 import (
 	"errors"
@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-// ServerUsage holds container resource info
-type ServerUsage struct {
+// ResourceUsage holds container resource info
+type ResourceUsage struct {
 	MemoryUsage uint64  // current memory usage
 	MemoryLimit uint64  // max allowed memory (0 = unlimited)
 	CPUUsage    float64 // current CPU usage %
@@ -149,8 +149,8 @@ func readCPUUsage() (uint64, error) {
 	return 0, errors.New("unable to read cpu usage from cgroup")
 }
 
-// GetServerUsage returns current container usage snapshot
-func GetServerUsage() (*ServerUsage, error) {
+// GetResourceUsage returns current container usage snapshot
+func GetResourceUsage() (*ResourceUsage, error) {
 	memUsed, err := GetMemoryUsageBytes()
 	if err != nil {
 		return nil, err
@@ -171,7 +171,7 @@ func GetServerUsage() (*ServerUsage, error) {
 		return nil, err
 	}
 
-	return &ServerUsage{
+	return &ResourceUsage{
 		MemoryUsage: memUsed,
 		MemoryLimit: memMax,
 		CPUUsage:    cpuPercent,

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/khanghh/mcrunner/internal/core"
 )
 
 var (
@@ -44,10 +43,10 @@ const (
 
 // FSHandler implements the File Explorer API under /api/fs
 type FSHandler struct {
-	svc core.LocalFileService
+	svc LocalFileService
 }
 
-func NewFSHandler(svc core.LocalFileService) *FSHandler {
+func NewFSHandler(svc LocalFileService) *FSHandler {
 	return &FSHandler{svc: svc}
 }
 

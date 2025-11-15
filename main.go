@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -13,13 +14,14 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	fiberws "github.com/gofiber/websocket/v2"
-	"github.com/khanghh/mcrunner/internal/core"
+	"github.com/khanghh/mcrunner/internal/file"
 	"github.com/khanghh/mcrunner/internal/handlers"
+	"github.com/khanghh/mcrunner/internal/mccmd"
 	"github.com/khanghh/mcrunner/internal/params"
-	"github.com/khanghh/mcrunner/internal/websocket"
-	"github.com/khanghh/mcrunner/pkg/gen"
+	"github.com/khanghh/mcrunner/internal/service"
+	pb "github.com/khanghh/mcrunner/pkg/proto"
 	"github.com/urfave/cli/v2"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -36,24 +38,25 @@ var (
 		Usage:   "Minecraft server command to run",
 	}
 	rootDirFlag = &cli.StringFlag{
-		Name:    "rootdir",
-		Aliases: []string{"d"},
-		Usage:   "Minecraft server root directory",
-	}
-	staticDirFlag = &cli.StringFlag{
-		Name:    "staticdir",
-		Aliases: []string{"s"},
-		Usage:   "Static directory to serve files from",
+		Name:  "rootdir",
+		Usage: "File manager root directory",
 	}
 	inputFifoFlag = &cli.StringFlag{
 		Name:    "fifo",
 		Aliases: []string{"f"},
 		Usage:   "Path to input FIFO file for sending commands to the Minecraft server",
 	}
-	listenFlag = &cli.StringFlag{
-		Name:    "listen",
+	grpcListenFlag = &cli.StringFlag{
+		Name:    "grpc",
+		Aliases: []string{"g"},
+		Usage:   "gRPC server listen address (host:port)",
+		Value:   ":50051",
+	}
+
+	httpListenFlag = &cli.StringFlag{
+		Name:    "http",
 		Aliases: []string{"l"},
-		Usage:   "HTTP server listen address",
+		Usage:   "HTTP server listen address (host:port)",
 		Value:   ":3000",
 	}
 )
@@ -66,9 +69,8 @@ func init() {
 	app.Flags = []cli.Flag{
 		commandFlag,
 		rootDirFlag,
-		staticDirFlag,
 		inputFifoFlag,
-		listenFlag,
+		httpListenFlag,
 	}
 	app.Commands = []*cli.Command{
 		{
@@ -98,7 +100,7 @@ func ensureFifoExist(fifoPath string) error {
 	return nil
 }
 
-func fifoInputLoop(mcserverCmd *core.MCServerCmd, fifoPath string) {
+func fifoInputLoop(mcserverCmd *mccmd.MCServerCmd, fifoPath string) {
 	if err := ensureFifoExist(fifoPath); err != nil {
 		panic(err)
 	}
@@ -116,7 +118,7 @@ func fifoInputLoop(mcserverCmd *core.MCServerCmd, fifoPath string) {
 		buf := make([]byte, 4096)
 		for {
 			n, readErr := fifoFile.Read(buf)
-			if n > 0 && mcserverCmd.GetStatus() == core.StatusRunning {
+			if n > 0 && mcserverCmd.GetStatus() == mccmd.StatusRunning {
 				if _, wErr := mcserverCmd.Write(buf[:n]); wErr != nil {
 					fmt.Fprintf(os.Stderr, "write stdin failed: %v\n", wErr)
 				}
@@ -167,46 +169,48 @@ func parseServerCmd(commandStr string) (string, []string) {
 	return commandStr, []string{}
 }
 
+func initListeners(grpcAddr, httpAddr string) (net.Listener, net.Listener, error) {
+	grpcListener, err := net.Listen("tcp", grpcAddr)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to listen on gRPC address %s: %v", grpcAddr, err)
+	}
+
+	if grpcAddr == httpAddr {
+		return grpcListener, grpcListener, nil
+	}
+
+	httpListener, err := net.Listen("tcp", httpAddr)
+	if err != nil {
+		grpcListener.Close()
+		return nil, nil, fmt.Errorf("failed to listen on HTTP address %s: %v", httpAddr, err)
+	}
+	return grpcListener, httpListener, nil
+}
+
 // run is the main entry point for the CLI application.
 // It initializes and starts the Minecraft server command, sets up HTTP API routes,
 // and handles graceful shutdown on receiving termination signals.
 func run(cli *cli.Context) error {
 	rootDir := cli.String(rootDirFlag.Name)
-	staticDir := cli.String(staticDirFlag.Name)
-	listenAddr := cli.String(listenFlag.Name)
+	gprcListenAddr := cli.String(grpcListenFlag.Name)
+	httpListenAddr := cli.String(httpListenFlag.Name)
 	serverCmd := cli.String(commandFlag.Name)
 	if serverCmd == "" {
 		return fmt.Errorf("server command must not be empty")
 	}
 
 	absRootDir := mustResolveRootDir(rootDir)
-	localFilesSvc := core.NewLocalFileService(absRootDir)
+	localFilesSvc := file.NewLocalFileService(absRootDir)
 
 	cmdPath, cmdArgs := parseServerCmd(serverCmd)
-	mcserverCmd := core.NewMCServerCmd(cmdPath, cmdArgs, rootDir, os.Stdout)
+	mcserverCmd := mccmd.NewMCServerCmd(cmdPath, cmdArgs, rootDir, os.Stdout)
 	if fifoPath := cli.String(inputFifoFlag.Name); fifoPath != "" {
 		go fifoInputLoop(mcserverCmd, fifoPath)
 	}
 
-	// middlewares
-	var (
-		wsUpgradeRequired = func(ctx *fiber.Ctx) error {
-			if !fiberws.IsWebSocketUpgrade(ctx) {
-				return fiber.ErrUpgradeRequired
-			}
-			return ctx.Next()
-		}
-	)
-
 	// handlers
 	mcrunnerHandler := handlers.NewMCRunnerHandler(mcserverCmd)
 	fsHandler := handlers.NewFSHandler(localFilesSvc)
-
-	// setup websocket server
-	wsServer := websocket.NewServer()
-	wsServer.StartBroadcast(mcrunnerHandler.WSBroadcast)
-	wsServer.OnConnect(mcrunnerHandler.WSOnClientConnect)
-	wsServer.OnMessage(gen.MessageType_PTY_INPUT, mcrunnerHandler.WSHandlePTYInput)
 
 	// setup HTTP server and routes
 	router := fiber.New(fiber.Config{
@@ -220,9 +224,6 @@ func run(cli *cli.Context) error {
 		AllowHeaders: "*",
 	}))
 
-	if staticDir != "" {
-		router.Static("/", staticDir)
-	}
 	router.Get("/api/fs/*", fsHandler.Get)
 	router.Post("/api/fs/*", fsHandler.Post)
 	router.Put("/api/fs/*", fsHandler.Put)
@@ -237,8 +238,6 @@ func run(cli *cli.Context) error {
 	router.Get("/readyz", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
-	router.Get("/ws", wsUpgradeRequired, wsServer.ServeFiberWS())
-
 	// start the mcserver command
 	if err := mcserverCmd.Start(); err != nil {
 		return fmt.Errorf("failed to start Minecraft server command: %v", err)
@@ -247,21 +246,43 @@ func run(cli *cli.Context) error {
 		io.Copy(mcserverCmd, os.Stdin)
 	}()
 
+	mcrunnerSvc := service.NewMCRunnerService(mcserverCmd)
+
+	server := grpc.NewServer()
+	pb.RegisterMCRunnerServer(server, mcrunnerSvc)
+
 	// Handle signals: first triggers graceful shutdown, second forces exit
-	sigCh := make(chan os.Signal, 2)
+	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigCh
 		go func() {
-			_ = mcserverCmd.Stop()
-			_ = wsServer.Shutdown()
-			_ = router.Shutdown()
+			mcserverCmd.Stop()
+			server.GracefulStop()
+			router.Shutdown()
+			close(sigCh)
 		}()
 		<-sigCh
-		os.Exit(1)
+		os.Exit(143)
 	}()
 
-	return router.Listen(listenAddr)
+	grpcListener, httpListener, err := initListeners(gprcListenAddr, httpListenAddr)
+	if err != nil {
+		return err
+	}
+
+	errCh := make(chan error)
+	go func() {
+		if err := server.Serve(grpcListener); err != nil {
+			errCh <- fmt.Errorf("gRPC server error: %v", err)
+		}
+	}()
+	go func() {
+		if err := router.Listener(httpListener); err != nil {
+			errCh <- fmt.Errorf("HTTP server error: %v", err)
+		}
+	}()
+	return <-errCh
 }
 
 func main() {

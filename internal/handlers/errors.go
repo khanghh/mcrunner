@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/khanghh/mcrunner/internal/core"
+	"github.com/khanghh/mcrunner/internal/file"
 )
 
 var (
@@ -14,13 +14,13 @@ var (
 
 // Helper functions
 func mapLocalFileServiceError(c *fiber.Ctx, err error) error {
-	if os.IsNotExist(err) || errors.Is(err, core.ErrFileNotFound) {
+	if os.IsNotExist(err) || errors.Is(err, file.ErrFileNotFound) {
 		return c.Status(fiber.StatusNotFound).JSON(JSONErrFileNotFound)
 	}
 	if os.IsPermission(err) {
 		return c.Status(fiber.StatusForbidden).JSON(JSONErrNoPermissions)
 	}
-	if errors.Is(err, core.ErrDirNotEmpty) {
+	if errors.Is(err, file.ErrDirNotEmpty) {
 		return c.Status(fiber.StatusBadRequest).JSON(JSONErrDirectoryNotEmpty)
 	}
 	return c.Status(fiber.StatusInternalServerError).JSON(errorMsg(err.Error()))

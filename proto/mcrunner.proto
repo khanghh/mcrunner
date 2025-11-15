@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+option go_package = "github.com/khanghh/mcrunner/pkg/proto;proto";
+
+import "google/protobuf/empty.proto";
+
+
+enum ServerStatus {
+  SERVER_STATUS_UNKNOWN = 0;
+  SERVER_STATUS_RUNNING = 1;
+  SERVER_STATUS_STOPPING = 2;
+  SERVER_STATUS_STOPPED = 3;
+}
+
+message PtyBuffer {
+  bytes data = 1;
+}
+
+message PtyResize {
+  uint32 cols = 1;
+  uint32 rows = 2;
+}
+
+message ServerState {
+  ServerStatus status = 1;
+  int32 pid = 2;
+  double tps = 3;
+  uint64 memory_usage = 4;
+  uint64 memory_limit = 5;
+  double cpu_usage = 6;
+  double cpu_limit = 7;
+  uint64 uptime_sec = 8;
+}
+
+// ConsoleMessage multiplexes PTY data and resize events in a single bidi stream
+message ConsoleMessage{
+  oneof payload {
+    PtyBuffer pty_buffer = 1;
+    PtyResize pty_resize = 2;
+  }
+}
+
+message CommandRequest {
+  string command = 1;
+}
+
+// ===== gRPC services =====
+service MCRunner {
+  // Lifecycle controls
+  rpc StartServer(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc StopServer(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc KillServer(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc RestartServer(google.protobuf.Empty) returns (google.protobuf.Empty);
+
+  // Issues a server console command
+  rpc SendCommand(CommandRequest) returns (google.protobuf.Empty);
+
+  // Streams live server console output and state
+  rpc StreamConsole(stream ConsoleMessage) returns (stream ConsoleMessage); 
+  rpc StreamState(google.protobuf.Empty) returns (stream ServerState);
+}

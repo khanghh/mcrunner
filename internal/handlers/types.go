@@ -1,4 +1,4 @@
-package core
+package handlers
 
 import (
 	"io"
@@ -19,7 +19,7 @@ type LocalFileService interface {
 	DetectMIMEType(relPath string) (string, error)
 }
 
-type MCManagerService interface {
+type MCRunnerService interface {
 	StartServer() error
 	StopServer() error
 	KillServer() error

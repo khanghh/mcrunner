@@ -4,21 +4,21 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/khanghh/mcrunner/internal/core"
+	"github.com/khanghh/mcrunner/internal/mccmd"
+	"github.com/khanghh/mcrunner/internal/sysmetrics"
 	"github.com/khanghh/mcrunner/pkg/api"
 )
 
 type MCRunnerHandler struct {
-	mcserver *core.MCServerCmd
-	*mcrunnerWSHandler
+	mcserver *mccmd.MCServerCmd
 }
 
-func (h *mcrunnerWSHandler) getServerState() api.ServerState {
+func (h *MCRunnerHandler) getServerState() api.ServerState {
 	status := h.mcserver.GetStatus()
 	serverState := api.ServerState{
 		Status: api.ServerStatus(status),
 	}
-	usage, err := core.GetServerUsage()
+	usage, err := sysmetrics.GetResourceUsage()
 	if err != nil {
 		return serverState
 	}
@@ -53,10 +53,9 @@ func (h *MCRunnerHandler) PostCommand(ctx *fiber.Ctx) error {
 }
 
 func (h *MCRunnerHandler) PostStartServer(ctx *fiber.Ctx) error {
-	if h.mcserver.GetStatus() == core.StatusRunning {
+	if h.mcserver.GetStatus() == mccmd.StatusRunning {
 		return ErrServerAlreadyRunning
 	}
-	h.buffer.Reset()
 	if err := h.mcserver.Start(); err != nil {
 		return InternalServerError(err)
 	}
@@ -65,7 +64,7 @@ func (h *MCRunnerHandler) PostStartServer(ctx *fiber.Ctx) error {
 }
 
 func (h *MCRunnerHandler) PostStopServer(ctx *fiber.Ctx) error {
-	if h.mcserver.GetStatus() != core.StatusRunning {
+	if h.mcserver.GetStatus() != mccmd.StatusRunning {
 		return ErrServerNotRunning
 	}
 	if err := h.mcserver.Stop(); err != nil {
@@ -75,7 +74,7 @@ func (h *MCRunnerHandler) PostStopServer(ctx *fiber.Ctx) error {
 }
 
 func (h *MCRunnerHandler) PostRestartServer(ctx *fiber.Ctx) error {
-	if h.mcserver.GetStatus() != core.StatusRunning {
+	if h.mcserver.GetStatus() != mccmd.StatusRunning {
 		return ErrServerNotRunning
 	}
 	if err := h.mcserver.Stop(); err != nil {
@@ -88,7 +87,7 @@ func (h *MCRunnerHandler) PostRestartServer(ctx *fiber.Ctx) error {
 }
 
 func (h *MCRunnerHandler) PostKillServer(ctx *fiber.Ctx) error {
-	if h.mcserver.GetStatus() != core.StatusRunning {
+	if h.mcserver.GetStatus() != mccmd.StatusRunning {
 		return ErrServerNotRunning
 	}
 	if err := h.mcserver.Kill(); err != nil {
@@ -103,13 +102,8 @@ func (h *MCRunnerHandler) GetState(ctx *fiber.Ctx) error {
 	})
 }
 
-func NewMCRunnerHandler(mcserver *core.MCServerCmd) *MCRunnerHandler {
-
+func NewMCRunnerHandler(mcserver *mccmd.MCServerCmd) *MCRunnerHandler {
 	return &MCRunnerHandler{
 		mcserver: mcserver,
-		mcrunnerWSHandler: &mcrunnerWSHandler{
-			mcserver: mcserver,
-			buffer:   core.NewRingBuffer(1 << 20),
-		},
 	}
 }

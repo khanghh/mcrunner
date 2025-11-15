@@ -1,7 +1,6 @@
-package core
+package file
 
 import (
-	"errors"
 	"io"
 	"mime"
 	"net/http"
@@ -10,28 +9,18 @@ import (
 	"strings"
 )
 
-var (
-	ErrPathTraversal  = errors.New("invalid path: traversal outside root is not allowed")
-	ErrFileNotFound   = errors.New("path not found")
-	ErrIsDirectory    = errors.New("path is a directory")
-	ErrNotDirectory   = errors.New("path is not a directory")
-	ErrAlreadyExists  = errors.New("already exists")
-	ErrDirNotEmpty    = errors.New("directory not empty")
-	ErrMissingNewName = errors.New("missing new name")
-)
-
-// LocalFileServiceImpl provides OS-backed file operations rooted at RootDir.
-type LocalFileServiceImpl struct {
+// LocalFileService provides OS-backed file operations rooted at RootDir.
+type LocalFileService struct {
 	RootDir string
 }
 
 // NewLocalFileService constructs a LocalFileServiceImpl with a sanitized absolute root.
-func NewLocalFileService(rootDir string) *LocalFileServiceImpl {
-	return &LocalFileServiceImpl{RootDir: rootDir}
+func NewLocalFileService(rootDir string) *LocalFileService {
+	return &LocalFileService{RootDir: rootDir}
 }
 
 // resolve joins the root and relative path, cleans it, and ensures it stays within RootDir.
-func (s *LocalFileServiceImpl) resolve(rel string) (string, error) {
+func (s *LocalFileService) resolve(rel string) (string, error) {
 	// treat leading slash as relative from root, trim it
 	rel = strings.TrimPrefix(rel, "/")
 	joined := filepath.Join(s.RootDir, rel)
@@ -51,7 +40,7 @@ func (s *LocalFileServiceImpl) resolve(rel string) (string, error) {
 }
 
 // Stat returns os.FileInfo for the given relative path.
-func (s *LocalFileServiceImpl) Stat(rel string) (os.FileInfo, error) {
+func (s *LocalFileService) Stat(rel string) (os.FileInfo, error) {
 	abs, err := s.resolve(rel)
 	if err != nil {
 		return nil, err
@@ -67,7 +56,7 @@ func (s *LocalFileServiceImpl) Stat(rel string) (os.FileInfo, error) {
 }
 
 // List lists a directory relative to root.
-func (s *LocalFileServiceImpl) List(rel string) ([]os.FileInfo, error) {
+func (s *LocalFileService) List(rel string) ([]os.FileInfo, error) {
 	abs, err := s.resolve(rel)
 	if err != nil {
 		return nil, err
@@ -98,7 +87,7 @@ func (s *LocalFileServiceImpl) List(rel string) ([]os.FileInfo, error) {
 }
 
 // Open returns an opened file for reading; caller must Close.
-func (s *LocalFileServiceImpl) Open(rel string) (*os.File, os.FileInfo, error) {
+func (s *LocalFileService) Open(rel string) (*os.File, os.FileInfo, error) {
 	abs, err := s.resolve(rel)
 	if err != nil {
 		return nil, nil, err
@@ -121,7 +110,7 @@ func (s *LocalFileServiceImpl) Open(rel string) (*os.File, os.FileInfo, error) {
 }
 
 // ReadFile reads entire file into memory. For large files, prefer Open and streaming.
-func (s *LocalFileServiceImpl) ReadFile(rel string) ([]byte, error) {
+func (s *LocalFileService) ReadFile(rel string) ([]byte, error) {
 	abs, err := s.resolve(rel)
 	if err != nil {
 		return nil, err
@@ -140,7 +129,7 @@ func (s *LocalFileServiceImpl) ReadFile(rel string) ([]byte, error) {
 }
 
 // WriteFile writes bytes to a file at rel. If create is false and the file doesn't exist, returns ErrNotFound.
-func (s *LocalFileServiceImpl) WriteFile(rel string, data []byte, create bool) error {
+func (s *LocalFileService) WriteFile(rel string, data []byte, create bool) error {
 	abs, err := s.resolve(rel)
 	if err != nil {
 		return err
@@ -161,7 +150,7 @@ func (s *LocalFileServiceImpl) WriteFile(rel string, data []byte, create bool) e
 }
 
 // SaveStream writes an io.Reader to the destination file. Overwrites when overwrite==true.
-func (s *LocalFileServiceImpl) SaveStream(rel string, r io.Reader, overwrite bool) error {
+func (s *LocalFileService) SaveStream(rel string, r io.Reader, overwrite bool) error {
 	abs, err := s.resolve(rel)
 	if err != nil {
 		return err
@@ -197,7 +186,7 @@ func (s *LocalFileServiceImpl) SaveStream(rel string, r io.Reader, overwrite boo
 }
 
 // Delete deletes a file or an empty directory.
-func (s *LocalFileServiceImpl) Delete(rel string) error {
+func (s *LocalFileService) Delete(rel string) error {
 	abs, err := s.resolve(rel)
 	if err != nil {
 		return err
@@ -226,7 +215,7 @@ func (s *LocalFileServiceImpl) Delete(rel string) error {
 }
 
 // DeleteRecursive deletes a file or directory recursively.
-func (s *LocalFileServiceImpl) DeleteRecursive(rel string) error {
+func (s *LocalFileService) DeleteRecursive(rel string) error {
 	abs, err := s.resolve(rel)
 	if err != nil {
 		return err
@@ -241,7 +230,7 @@ func (s *LocalFileServiceImpl) DeleteRecursive(rel string) error {
 }
 
 // MkdirAll creates a directory (and parents) at rel.
-func (s *LocalFileServiceImpl) MkdirAll(rel string) error {
+func (s *LocalFileService) MkdirAll(rel string) error {
 	abs, err := s.resolve(rel)
 	if err != nil {
 		return err
@@ -250,7 +239,7 @@ func (s *LocalFileServiceImpl) MkdirAll(rel string) error {
 }
 
 // RenameDir renames/moves a file or directory to newPath
-func (s *LocalFileServiceImpl) Rename(relPath string, newPath string, overwrite bool) error {
+func (s *LocalFileService) Rename(relPath string, newPath string, overwrite bool) error {
 	if strings.TrimSpace(newPath) == "" {
 		return ErrMissingNewName
 	}
@@ -284,7 +273,7 @@ func (s *LocalFileServiceImpl) Rename(relPath string, newPath string, overwrite 
 }
 
 // DetectMIME tries to infer MIME type by extension or content.
-func (s *LocalFileServiceImpl) DetectMIMEType(rel string) (string, error) {
+func (s *LocalFileService) DetectMIMEType(rel string) (string, error) {
 	abs, err := s.resolve(rel)
 	if err != nil {
 		return "", err
