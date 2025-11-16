@@ -13,7 +13,7 @@ type ringBuffer struct {
 	size  int
 }
 
-func NewRingBuffer(capacity int) *ringBuffer {
+func newRingBuffer(capacity int) *ringBuffer {
 	if capacity <= 0 {
 		capacity = 1 << 20 // default 1 MiB
 	}

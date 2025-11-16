@@ -21,6 +21,11 @@ message PtyResize {
   uint32 rows = 2;
 }
 
+message PtyError {
+  string code    = 1;
+  string message = 2;
+}
+
 message ServerState {
   ServerStatus status = 1;
   int32 pid = 2;
@@ -37,6 +42,7 @@ message ConsoleMessage{
   oneof payload {
     PtyBuffer pty_buffer = 1;
     PtyResize pty_resize = 2;
+    PtyError pty_error = 3;
   }
 }
 

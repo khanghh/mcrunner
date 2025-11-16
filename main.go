@@ -22,6 +22,7 @@ import (
 	pb "github.com/khanghh/mcrunner/pkg/proto"
 	"github.com/urfave/cli/v2"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 )
 
 var (
@@ -38,8 +39,9 @@ var (
 		Usage:   "Minecraft server command to run",
 	}
 	rootDirFlag = &cli.StringFlag{
-		Name:  "rootdir",
-		Usage: "File manager root directory",
+		Name:    "rootdir",
+		Aliases: []string{"d"},
+		Usage:   "File manager root directory",
 	}
 	inputFifoFlag = &cli.StringFlag{
 		Name:    "fifo",
@@ -52,7 +54,6 @@ var (
 		Usage:   "gRPC server listen address (host:port)",
 		Value:   ":50051",
 	}
-
 	httpListenFlag = &cli.StringFlag{
 		Name:    "http",
 		Aliases: []string{"l"},
@@ -70,6 +71,7 @@ func init() {
 		commandFlag,
 		rootDirFlag,
 		inputFifoFlag,
+		grpcListenFlag,
 		httpListenFlag,
 	}
 	app.Commands = []*cli.Command{
@@ -238,17 +240,19 @@ func run(cli *cli.Context) error {
 	router.Get("/readyz", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
-	// start the mcserver command
-	if err := mcserverCmd.Start(); err != nil {
-		return fmt.Errorf("failed to start Minecraft server command: %v", err)
-	}
-	go func() {
-		io.Copy(mcserverCmd, os.Stdin)
-	}()
 
 	mcrunnerSvc := service.NewMCRunnerService(mcserverCmd)
-
-	server := grpc.NewServer()
+	server := grpc.NewServer(
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			MaxConnectionIdle: 0,
+			Time:              1 * time.Minute,  // ping every 60s
+			Timeout:           10 * time.Second, // wait up to 10s for pong
+		}),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             30 * time.Second, // clients must wait at least this between pings
+			PermitWithoutStream: true,             // allow pings even with no active RPC
+		}),
+	)
 	pb.RegisterMCRunnerServer(server, mcrunnerSvc)
 
 	// Handle signals: first triggers graceful shutdown, second forces exit
@@ -266,6 +270,14 @@ func run(cli *cli.Context) error {
 		os.Exit(143)
 	}()
 
+	// start the mcserver command
+	if err := mcserverCmd.Start(); err != nil {
+		return fmt.Errorf("failed to start Minecraft server command: %v", err)
+	}
+	go func() {
+		io.Copy(mcserverCmd, os.Stdin)
+	}()
+
 	grpcListener, httpListener, err := initListeners(gprcListenAddr, httpListenAddr)
 	if err != nil {
 		return err
@@ -273,11 +285,13 @@ func run(cli *cli.Context) error {
 
 	errCh := make(chan error)
 	go func() {
+		fmt.Printf("Listening gRPC at %s\n", gprcListenAddr)
 		if err := server.Serve(grpcListener); err != nil {
 			errCh <- fmt.Errorf("gRPC server error: %v", err)
 		}
 	}()
 	go func() {
+		fmt.Printf("Listening HTTP at %s\n", httpListenAddr)
 		if err := router.Listener(httpListener); err != nil {
 			errCh <- fmt.Errorf("HTTP server error: %v", err)
 		}
