@@ -71,20 +71,15 @@ func (m *MCServerCmd) SendCommand(cmd string) error {
 func (m *MCServerCmd) Write(data []byte) (int, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.ptmx == nil {
-		return 0, os.ErrInvalid
+	if m.cmd == nil || m.cmd.ProcessState != nil || m.ptmx == nil {
+		return 0, ErrNotRunning
 	}
 	return m.ptmx.Write(data)
-}
-
-func (m *MCServerCmd) Read(p []byte) (int, error) {
-	return 0, nil
 }
 
 // Wait blocks until the Minecraft server process exits.
 func (m *MCServerCmd) Wait() error {
 	<-m.done
-	m.notifyStatusChanged(StatusStopped)
 	return m.err
 }
 
@@ -96,7 +91,9 @@ func (m *MCServerCmd) Stop() error {
 	m.mu.Lock()
 	m.status = StatusStopping
 	m.mu.Unlock()
+
 	m.notifyStatusChanged(StatusStopping)
+
 	err := m.Wait()
 	if exitErr, ok := err.(*exec.ExitError); ok {
 		waitStatus, ok := exitErr.Sys().(syscall.WaitStatus)
@@ -111,18 +108,19 @@ func (m *MCServerCmd) Stop() error {
 func (m *MCServerCmd) Signal(sig os.Signal) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.cmd == nil || m.cmd.Process == nil {
-		return os.ErrInvalid
+	if m.cmd == nil || m.cmd.ProcessState != nil {
+		return ErrNotRunning
 	}
 	return m.cmd.Process.Signal(sig)
 }
 
 // Kill forcefully terminates the Minecraft server process.
 func (m *MCServerCmd) Kill() error {
-	if m.cmd == nil || m.cmd.Process == nil {
-		return os.ErrInvalid
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.cmd == nil || m.cmd.ProcessState != nil {
+		return ErrNotRunning
 	}
-	defer m.notifyStatusChanged(StatusStopped)
 	return m.cmd.Process.Kill()
 }
 
@@ -158,6 +156,9 @@ func (m *MCServerCmd) GetStartTime() *time.Time {
 func (m *MCServerCmd) Start() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.status == StatusRunning {
+		return ErrAlreadyRunning
+	}
 
 	cmd := exec.Command(m.cmdPath, m.cmdArgs...)
 	if m.cmdDir != "" {
@@ -197,8 +198,8 @@ func (m *MCServerCmd) Start() error {
 func (m *MCServerCmd) ResizeWindow(rows, cols int) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.ptmx == nil {
-		return os.ErrInvalid
+	if m.cmd == nil || m.cmd.ProcessState != nil || m.ptmx == nil {
+		return ErrNotRunning
 	}
 	return pty.Setsize(m.ptmx, &pty.Winsize{
 		Rows: uint16(rows),

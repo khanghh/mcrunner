@@ -32,7 +32,7 @@ func (h *MCRunnerHandler) getServerState() api.ServerState {
 		return serverState
 	}
 	if startTime := h.mcserver.GetStartTime(); startTime != nil {
-		serverState.UptimeSec = uint64(time.Now().Sub(*startTime).Seconds())
+		serverState.UptimeSec = uint64(time.Since(*startTime).Seconds())
 	}
 	serverState.PID = process.Pid
 	return serverState
