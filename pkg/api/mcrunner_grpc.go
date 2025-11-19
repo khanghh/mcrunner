@@ -12,8 +12,13 @@ import (
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/resolver"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
+
+func init() {
+	resolver.Register(&mcrunnerBuilder{})
+}
 
 type MCRunnerGRPC struct {
 	conn *grpc.ClientConn
