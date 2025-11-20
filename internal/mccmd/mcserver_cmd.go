@@ -12,13 +12,13 @@ import (
 	"github.com/creack/pty"
 )
 
-// ServerStatus represents the current server status
-type ServerStatus string
+// Status represents the current server status
+type Status string
 
 const (
-	StatusRunning  ServerStatus = "running"
-	StatusStopping ServerStatus = "stopping"
-	StatusStopped  ServerStatus = "stopped"
+	StatusRunning  Status = "running"
+	StatusStopping Status = "stopping"
+	StatusStopped  Status = "stopped"
 )
 
 type MCServerCmd struct {
@@ -38,9 +38,9 @@ type MCServerCmd struct {
 	done      chan struct{}
 	err       error
 	startTime *time.Time
-	status    ServerStatus
+	status    Status
 
-	notifyStatusChanged func(status ServerStatus)
+	notifyStatusChanged func(status Status)
 }
 
 // NewMCServerCmd creates a new MCServerCmd instance with proper initialization.
@@ -129,7 +129,7 @@ func (m *MCServerCmd) OutputStream() io.Reader {
 }
 
 // GetStatus returns the current server status
-func (m *MCServerCmd) GetStatus() ServerStatus {
+func (m *MCServerCmd) GetStatus() Status {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.status
@@ -207,6 +207,6 @@ func (m *MCServerCmd) ResizeWindow(rows, cols int) error {
 	})
 }
 
-func (m *MCServerCmd) OnStatusChanged(statusListener func(status ServerStatus)) {
+func (m *MCServerCmd) OnStatusChanged(statusListener func(status Status)) {
 	m.notifyStatusChanged = statusListener
 }

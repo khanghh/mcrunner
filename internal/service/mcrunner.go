@@ -20,13 +20,12 @@ import (
 
 type MCRunnerService struct {
 	pb.UnimplementedMCRunnerServer
-	mcserver     *mccmd.MCServerCmd
-	buffer       *ringBuffer
-	consoleSubs  map[grpc.ServerStreamingServer[pb.ConsoleMessage]]struct{}
-	stateSubs    map[grpc.ServerStreamingServer[pb.ServerState]]struct{}
-	broadcastPTY chan *pb.ConsoleMessage
-	done         chan struct{}
-	mu           sync.Mutex
+	mcserver    *mccmd.MCServerCmd
+	buffer      *ringBuffer
+	consoleSubs map[grpc.ServerStreamingServer[pb.ConsoleMessage]]struct{}
+	stateSubs   map[grpc.ServerStreamingServer[pb.ServerState]]struct{}
+	done        chan struct{}
+	mu          sync.Mutex
 }
 
 func (m *MCRunnerService) StartServer(ctx context.Context, p1 *emptypb.Empty) (*emptypb.Empty, error) {
@@ -129,7 +128,6 @@ func (m *MCRunnerService) StreamConsole(stream grpc.BidiStreamingServer[pb.Conso
 					return status.Errorf(codes.Unavailable, "Stream closed")
 				}
 			}
-			m.broadcastPTY <- msg
 		default:
 			return status.Errorf(codes.InvalidArgument, "Unknown payload type")
 		}
@@ -154,57 +152,59 @@ func (m *MCRunnerService) StreamState(p0 *emptypb.Empty, stream grpc.ServerStrea
 	return stream.Context().Err()
 }
 
-func (m *MCRunnerService) broadcastPTYData() {
-	stream := m.mcserver.OutputStream()
-	buf := make([]byte, 4096)
+func (m *MCRunnerService) broadcastConsoleLoop() {
+	broadcastCh := make(chan *pb.ConsoleMessage, 1)
+	m.mcserver.OnStatusChanged(func(status mccmd.Status) {
+		broadcastCh <- NewPtyStatusMessage(status)
+	})
 	go func() {
+		stream := m.mcserver.OutputStream()
+		buf := make([]byte, 4096)
 		for {
+			n, err := stream.Read(buf)
+			if err != nil {
+				return
+			}
+
+			data := make([]byte, n)
+			copy(data, buf[:n])
+
+			m.buffer.Write(buf[:n])
+
 			select {
-			case msg := <-m.broadcastPTY:
-				m.mu.Lock()
-				for stream := range m.consoleSubs {
-					if err := stream.Send(msg); err != nil {
-						log.Println("Failed to send PTY buffer message:", err)
-					}
-				}
-				m.mu.Unlock()
+			case broadcastCh <- NewPtyBufferMessage(data):
 			case <-m.done:
 				return
 			}
 		}
 	}()
 	for {
-		n, err := stream.Read(buf)
-		if err != nil {
-			return
-		}
-
-		data := make([]byte, n)
-		copy(data, buf[:n])
-
-		m.buffer.Write(buf[:n])
-
 		select {
-		case m.broadcastPTY <- NewPtyBufferMessage(data):
+		case msg := <-broadcastCh:
+			m.mu.Lock()
+			for stream := range m.consoleSubs {
+				if err := stream.Send(msg); err != nil {
+					log.Println("Failed to send PTY buffer message:", err)
+				}
+			}
+			m.mu.Unlock()
 		case <-m.done:
-			return
 		}
 	}
-
 }
 
 func (h *MCRunnerService) getServerState() *pb.ServerState {
 	status := h.mcserver.GetStatus()
-	var statusCode pb.ServerStatus
+	var statusCode pb.Status
 	switch status {
 	case mccmd.StatusRunning:
-		statusCode = pb.ServerStatus_SERVER_STATUS_RUNNING
+		statusCode = pb.Status_STATUS_RUNNING
 	case mccmd.StatusStopping:
-		statusCode = pb.ServerStatus_SERVER_STATUS_STOPPING
+		statusCode = pb.Status_STATUS_STOPPING
 	case mccmd.StatusStopped:
-		statusCode = pb.ServerStatus_SERVER_STATUS_STOPPED
+		statusCode = pb.Status_STATUS_STOPPED
 	default:
-		statusCode = pb.ServerStatus_SERVER_STATUS_UNKNOWN
+		statusCode = pb.Status_STATUS_UNKNOWN
 	}
 	serverState := &pb.ServerState{
 		Status: statusCode,
@@ -231,48 +231,35 @@ func (h *MCRunnerService) getServerState() *pb.ServerState {
 	return serverState
 }
 
-func (m *MCRunnerService) broadcastServerState() {
-	statusCh := make(chan mccmd.ServerStatus)
-	m.mcserver.OnStatusChanged(func(status mccmd.ServerStatus) {
-		statusCh <- status
-	})
-
-	broadcastState := func(state *pb.ServerState) {
-		m.mu.Lock()
-		defer m.mu.Unlock()
-		for stream := range m.stateSubs {
-			if err := stream.Send(state); err != nil {
-				log.Println("Failed to send server state message:", err)
+func (m *MCRunnerService) broadcastStateLoop() {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			m.mu.Lock()
+			state := m.getServerState()
+			for stream := range m.stateSubs {
+				if err := stream.Send(state); err != nil {
+					log.Println("Failed to send server state message:", err)
+				}
 			}
+			m.mu.Unlock()
+		case <-m.done:
+			return
 		}
 	}
-
-	go func() {
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				broadcastState(m.getServerState())
-			case <-statusCh:
-				broadcastState(m.getServerState())
-			case <-m.done:
-				return
-			}
-		}
-	}()
 }
 
 func NewMCRunnerService(mcserver *mccmd.MCServerCmd) *MCRunnerService {
 	svc := &MCRunnerService{
-		mcserver:     mcserver,
-		buffer:       newRingBuffer(1 << 20), // 1 MiB buffer
-		broadcastPTY: make(chan *pb.ConsoleMessage, 1),
-		consoleSubs:  make(map[grpc.ServerStreamingServer[pb.ConsoleMessage]]struct{}),
-		stateSubs:    make(map[grpc.ServerStreamingServer[pb.ServerState]]struct{}),
-		done:         make(chan struct{}),
+		mcserver:    mcserver,
+		buffer:      newRingBuffer(1 << 20), // 1 MiB buffer
+		consoleSubs: make(map[grpc.ServerStreamingServer[pb.ConsoleMessage]]struct{}),
+		stateSubs:   make(map[grpc.ServerStreamingServer[pb.ServerState]]struct{}),
+		done:        make(chan struct{}),
 	}
-	go svc.broadcastPTYData()
-	go svc.broadcastServerState()
+	go svc.broadcastConsoleLoop()
+	go svc.broadcastStateLoop()
 	return svc
 }

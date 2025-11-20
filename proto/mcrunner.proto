@@ -5,11 +5,11 @@ option go_package = "github.com/khanghh/mcrunner/pkg/proto;proto";
 import "google/protobuf/empty.proto";
 
 
-enum ServerStatus {
-  SERVER_STATUS_UNKNOWN = 0;
-  SERVER_STATUS_RUNNING = 1;
-  SERVER_STATUS_STOPPING = 2;
-  SERVER_STATUS_STOPPED = 3;
+enum Status {
+  STATUS_UNKNOWN = 0;
+  STATUS_RUNNING = 1;
+  STATUS_STOPPING = 2;
+  STATUS_STOPPED = 3;
 }
 
 message PtyBuffer {
@@ -21,13 +21,17 @@ message PtyResize {
   uint32 rows = 2;
 }
 
+message PtyStatus {
+  Status status = 2;
+}
+
 message PtyError {
-  string code    = 1;
+  string code = 1;
   string message = 2;
 }
 
 message ServerState {
-  ServerStatus status = 1;
+  Status status = 1;
   int32 pid = 2;
   double tps = 3;
   uint64 memory_usage = 4;
@@ -38,11 +42,12 @@ message ServerState {
 }
 
 // ConsoleMessage multiplexes PTY data and resize events in a single bidi stream
-message ConsoleMessage{
+message ConsoleMessage {
   oneof payload {
     PtyBuffer pty_buffer = 1;
     PtyResize pty_resize = 2;
     PtyError pty_error = 3;
+    PtyStatus pty_status = 4;
   }
 }
 
@@ -62,6 +67,6 @@ service MCRunner {
   rpc SendCommand(CommandRequest) returns (google.protobuf.Empty);
 
   // Streams live server console output and state
-  rpc StreamConsole(stream ConsoleMessage) returns (stream ConsoleMessage); 
+  rpc StreamConsole(stream ConsoleMessage) returns (stream ConsoleMessage);
   rpc StreamState(google.protobuf.Empty) returns (stream ServerState);
 }

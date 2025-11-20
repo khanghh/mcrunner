@@ -1,6 +1,9 @@
 package service
 
-import "github.com/khanghh/mcrunner/pkg/proto"
+import (
+	"github.com/khanghh/mcrunner/internal/mccmd"
+	"github.com/khanghh/mcrunner/pkg/proto"
+)
 
 func NewPtyErrorMessage(message string) *proto.ConsoleMessage {
 	return &proto.ConsoleMessage{
@@ -28,6 +31,27 @@ func NewPtyBufferMessage(output []byte) *proto.ConsoleMessage {
 		Payload: &proto.ConsoleMessage_PtyBuffer{
 			PtyBuffer: &proto.PtyBuffer{
 				Data: output,
+			},
+		},
+	}
+}
+
+func NewPtyStatusMessage(status mccmd.Status) *proto.ConsoleMessage {
+	var pbStatus proto.Status
+	switch status {
+	case mccmd.StatusRunning:
+		pbStatus = proto.Status_STATUS_RUNNING
+	case mccmd.StatusStopping:
+		pbStatus = proto.Status_STATUS_STOPPING
+	case mccmd.StatusStopped:
+		pbStatus = proto.Status_STATUS_STOPPED
+	default:
+		pbStatus = proto.Status_STATUS_UNKNOWN
+	}
+	return &proto.ConsoleMessage{
+		Payload: &proto.ConsoleMessage_PtyStatus{
+			PtyStatus: &proto.PtyStatus{
+				Status: pbStatus,
 			},
 		},
 	}

@@ -22,55 +22,55 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type ServerStatus int32
+type Status int32
 
 const (
-	ServerStatus_SERVER_STATUS_UNKNOWN  ServerStatus = 0
-	ServerStatus_SERVER_STATUS_RUNNING  ServerStatus = 1
-	ServerStatus_SERVER_STATUS_STOPPING ServerStatus = 2
-	ServerStatus_SERVER_STATUS_STOPPED  ServerStatus = 3
+	Status_STATUS_UNKNOWN  Status = 0
+	Status_STATUS_RUNNING  Status = 1
+	Status_STATUS_STOPPING Status = 2
+	Status_STATUS_STOPPED  Status = 3
 )
 
-// Enum value maps for ServerStatus.
+// Enum value maps for Status.
 var (
-	ServerStatus_name = map[int32]string{
-		0: "SERVER_STATUS_UNKNOWN",
-		1: "SERVER_STATUS_RUNNING",
-		2: "SERVER_STATUS_STOPPING",
-		3: "SERVER_STATUS_STOPPED",
+	Status_name = map[int32]string{
+		0: "STATUS_UNKNOWN",
+		1: "STATUS_RUNNING",
+		2: "STATUS_STOPPING",
+		3: "STATUS_STOPPED",
 	}
-	ServerStatus_value = map[string]int32{
-		"SERVER_STATUS_UNKNOWN":  0,
-		"SERVER_STATUS_RUNNING":  1,
-		"SERVER_STATUS_STOPPING": 2,
-		"SERVER_STATUS_STOPPED":  3,
+	Status_value = map[string]int32{
+		"STATUS_UNKNOWN":  0,
+		"STATUS_RUNNING":  1,
+		"STATUS_STOPPING": 2,
+		"STATUS_STOPPED":  3,
 	}
 )
 
-func (x ServerStatus) Enum() *ServerStatus {
-	p := new(ServerStatus)
+func (x Status) Enum() *Status {
+	p := new(Status)
 	*p = x
 	return p
 }
 
-func (x ServerStatus) String() string {
+func (x Status) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (ServerStatus) Descriptor() protoreflect.EnumDescriptor {
+func (Status) Descriptor() protoreflect.EnumDescriptor {
 	return file_mcrunner_proto_enumTypes[0].Descriptor()
 }
 
-func (ServerStatus) Type() protoreflect.EnumType {
+func (Status) Type() protoreflect.EnumType {
 	return &file_mcrunner_proto_enumTypes[0]
 }
 
-func (x ServerStatus) Number() protoreflect.EnumNumber {
+func (x Status) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use ServerStatus.Descriptor instead.
-func (ServerStatus) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use Status.Descriptor instead.
+func (Status) EnumDescriptor() ([]byte, []int) {
 	return file_mcrunner_proto_rawDescGZIP(), []int{0}
 }
 
@@ -170,6 +170,50 @@ func (x *PtyResize) GetRows() uint32 {
 	return 0
 }
 
+type PtyStatus struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Status        Status                 `protobuf:"varint,2,opt,name=status,proto3,enum=Status" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PtyStatus) Reset() {
+	*x = PtyStatus{}
+	mi := &file_mcrunner_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PtyStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PtyStatus) ProtoMessage() {}
+
+func (x *PtyStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_mcrunner_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PtyStatus.ProtoReflect.Descriptor instead.
+func (*PtyStatus) Descriptor() ([]byte, []int) {
+	return file_mcrunner_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *PtyStatus) GetStatus() Status {
+	if x != nil {
+		return x.Status
+	}
+	return Status_STATUS_UNKNOWN
+}
+
 type PtyError struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
@@ -180,7 +224,7 @@ type PtyError struct {
 
 func (x *PtyError) Reset() {
 	*x = PtyError{}
-	mi := &file_mcrunner_proto_msgTypes[2]
+	mi := &file_mcrunner_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -192,7 +236,7 @@ func (x *PtyError) String() string {
 func (*PtyError) ProtoMessage() {}
 
 func (x *PtyError) ProtoReflect() protoreflect.Message {
-	mi := &file_mcrunner_proto_msgTypes[2]
+	mi := &file_mcrunner_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -205,7 +249,7 @@ func (x *PtyError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PtyError.ProtoReflect.Descriptor instead.
 func (*PtyError) Descriptor() ([]byte, []int) {
-	return file_mcrunner_proto_rawDescGZIP(), []int{2}
+	return file_mcrunner_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *PtyError) GetCode() string {
@@ -224,7 +268,7 @@ func (x *PtyError) GetMessage() string {
 
 type ServerState struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Status        ServerStatus           `protobuf:"varint,1,opt,name=status,proto3,enum=ServerStatus" json:"status,omitempty"`
+	Status        Status                 `protobuf:"varint,1,opt,name=status,proto3,enum=Status" json:"status,omitempty"`
 	Pid           int32                  `protobuf:"varint,2,opt,name=pid,proto3" json:"pid,omitempty"`
 	Tps           float64                `protobuf:"fixed64,3,opt,name=tps,proto3" json:"tps,omitempty"`
 	MemoryUsage   uint64                 `protobuf:"varint,4,opt,name=memory_usage,json=memoryUsage,proto3" json:"memory_usage,omitempty"`
@@ -238,7 +282,7 @@ type ServerState struct {
 
 func (x *ServerState) Reset() {
 	*x = ServerState{}
-	mi := &file_mcrunner_proto_msgTypes[3]
+	mi := &file_mcrunner_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -250,7 +294,7 @@ func (x *ServerState) String() string {
 func (*ServerState) ProtoMessage() {}
 
 func (x *ServerState) ProtoReflect() protoreflect.Message {
-	mi := &file_mcrunner_proto_msgTypes[3]
+	mi := &file_mcrunner_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -263,14 +307,14 @@ func (x *ServerState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerState.ProtoReflect.Descriptor instead.
 func (*ServerState) Descriptor() ([]byte, []int) {
-	return file_mcrunner_proto_rawDescGZIP(), []int{3}
+	return file_mcrunner_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *ServerState) GetStatus() ServerStatus {
+func (x *ServerState) GetStatus() Status {
 	if x != nil {
 		return x.Status
 	}
-	return ServerStatus_SERVER_STATUS_UNKNOWN
+	return Status_STATUS_UNKNOWN
 }
 
 func (x *ServerState) GetPid() int32 {
@@ -330,6 +374,7 @@ type ConsoleMessage struct {
 	//	*ConsoleMessage_PtyBuffer
 	//	*ConsoleMessage_PtyResize
 	//	*ConsoleMessage_PtyError
+	//	*ConsoleMessage_PtyStatus
 	Payload       isConsoleMessage_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -337,7 +382,7 @@ type ConsoleMessage struct {
 
 func (x *ConsoleMessage) Reset() {
 	*x = ConsoleMessage{}
-	mi := &file_mcrunner_proto_msgTypes[4]
+	mi := &file_mcrunner_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -349,7 +394,7 @@ func (x *ConsoleMessage) String() string {
 func (*ConsoleMessage) ProtoMessage() {}
 
 func (x *ConsoleMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_mcrunner_proto_msgTypes[4]
+	mi := &file_mcrunner_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -362,7 +407,7 @@ func (x *ConsoleMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsoleMessage.ProtoReflect.Descriptor instead.
 func (*ConsoleMessage) Descriptor() ([]byte, []int) {
-	return file_mcrunner_proto_rawDescGZIP(), []int{4}
+	return file_mcrunner_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ConsoleMessage) GetPayload() isConsoleMessage_Payload {
@@ -399,6 +444,15 @@ func (x *ConsoleMessage) GetPtyError() *PtyError {
 	return nil
 }
 
+func (x *ConsoleMessage) GetPtyStatus() *PtyStatus {
+	if x != nil {
+		if x, ok := x.Payload.(*ConsoleMessage_PtyStatus); ok {
+			return x.PtyStatus
+		}
+	}
+	return nil
+}
+
 type isConsoleMessage_Payload interface {
 	isConsoleMessage_Payload()
 }
@@ -415,11 +469,17 @@ type ConsoleMessage_PtyError struct {
 	PtyError *PtyError `protobuf:"bytes,3,opt,name=pty_error,json=ptyError,proto3,oneof"`
 }
 
+type ConsoleMessage_PtyStatus struct {
+	PtyStatus *PtyStatus `protobuf:"bytes,4,opt,name=pty_status,json=ptyStatus,proto3,oneof"`
+}
+
 func (*ConsoleMessage_PtyBuffer) isConsoleMessage_Payload() {}
 
 func (*ConsoleMessage_PtyResize) isConsoleMessage_Payload() {}
 
 func (*ConsoleMessage_PtyError) isConsoleMessage_Payload() {}
+
+func (*ConsoleMessage_PtyStatus) isConsoleMessage_Payload() {}
 
 type CommandRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -430,7 +490,7 @@ type CommandRequest struct {
 
 func (x *CommandRequest) Reset() {
 	*x = CommandRequest{}
-	mi := &file_mcrunner_proto_msgTypes[5]
+	mi := &file_mcrunner_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -442,7 +502,7 @@ func (x *CommandRequest) String() string {
 func (*CommandRequest) ProtoMessage() {}
 
 func (x *CommandRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mcrunner_proto_msgTypes[5]
+	mi := &file_mcrunner_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -455,7 +515,7 @@ func (x *CommandRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandRequest.ProtoReflect.Descriptor instead.
 func (*CommandRequest) Descriptor() ([]byte, []int) {
-	return file_mcrunner_proto_rawDescGZIP(), []int{5}
+	return file_mcrunner_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *CommandRequest) GetCommand() string {
@@ -474,12 +534,14 @@ const file_mcrunner_proto_rawDesc = "" +
 	"\x04data\x18\x01 \x01(\fR\x04data\"3\n" +
 	"\tPtyResize\x12\x12\n" +
 	"\x04cols\x18\x01 \x01(\rR\x04cols\x12\x12\n" +
-	"\x04rows\x18\x02 \x01(\rR\x04rows\"8\n" +
+	"\x04rows\x18\x02 \x01(\rR\x04rows\",\n" +
+	"\tPtyStatus\x12\x1f\n" +
+	"\x06status\x18\x02 \x01(\x0e2\a.StatusR\x06status\"8\n" +
 	"\bPtyError\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\xf7\x01\n" +
-	"\vServerState\x12%\n" +
-	"\x06status\x18\x01 \x01(\x0e2\r.ServerStatusR\x06status\x12\x10\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xf1\x01\n" +
+	"\vServerState\x12\x1f\n" +
+	"\x06status\x18\x01 \x01(\x0e2\a.StatusR\x06status\x12\x10\n" +
 	"\x03pid\x18\x02 \x01(\x05R\x03pid\x12\x10\n" +
 	"\x03tps\x18\x03 \x01(\x01R\x03tps\x12!\n" +
 	"\fmemory_usage\x18\x04 \x01(\x04R\vmemoryUsage\x12!\n" +
@@ -487,7 +549,7 @@ const file_mcrunner_proto_rawDesc = "" +
 	"\tcpu_usage\x18\x06 \x01(\x01R\bcpuUsage\x12\x1b\n" +
 	"\tcpu_limit\x18\a \x01(\x01R\bcpuLimit\x12\x1d\n" +
 	"\n" +
-	"uptime_sec\x18\b \x01(\x04R\tuptimeSec\"\x9f\x01\n" +
+	"uptime_sec\x18\b \x01(\x04R\tuptimeSec\"\xcc\x01\n" +
 	"\x0eConsoleMessage\x12+\n" +
 	"\n" +
 	"pty_buffer\x18\x01 \x01(\v2\n" +
@@ -495,15 +557,18 @@ const file_mcrunner_proto_rawDesc = "" +
 	"\n" +
 	"pty_resize\x18\x02 \x01(\v2\n" +
 	".PtyResizeH\x00R\tptyResize\x12(\n" +
-	"\tpty_error\x18\x03 \x01(\v2\t.PtyErrorH\x00R\bptyErrorB\t\n" +
+	"\tpty_error\x18\x03 \x01(\v2\t.PtyErrorH\x00R\bptyError\x12+\n" +
+	"\n" +
+	"pty_status\x18\x04 \x01(\v2\n" +
+	".PtyStatusH\x00R\tptyStatusB\t\n" +
 	"\apayload\"*\n" +
 	"\x0eCommandRequest\x12\x18\n" +
-	"\acommand\x18\x01 \x01(\tR\acommand*{\n" +
-	"\fServerStatus\x12\x19\n" +
-	"\x15SERVER_STATUS_UNKNOWN\x10\x00\x12\x19\n" +
-	"\x15SERVER_STATUS_RUNNING\x10\x01\x12\x1a\n" +
-	"\x16SERVER_STATUS_STOPPING\x10\x02\x12\x19\n" +
-	"\x15SERVER_STATUS_STOPPED\x10\x032\xac\x03\n" +
+	"\acommand\x18\x01 \x01(\tR\acommand*Y\n" +
+	"\x06Status\x12\x12\n" +
+	"\x0eSTATUS_UNKNOWN\x10\x00\x12\x12\n" +
+	"\x0eSTATUS_RUNNING\x10\x01\x12\x13\n" +
+	"\x0fSTATUS_STOPPING\x10\x02\x12\x12\n" +
+	"\x0eSTATUS_STOPPED\x10\x032\xac\x03\n" +
 	"\bMCRunner\x12=\n" +
 	"\vStartServer\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\x12<\n" +
 	"\n" +
@@ -528,41 +593,44 @@ func file_mcrunner_proto_rawDescGZIP() []byte {
 }
 
 var file_mcrunner_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_mcrunner_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_mcrunner_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_mcrunner_proto_goTypes = []any{
-	(ServerStatus)(0),      // 0: ServerStatus
+	(Status)(0),            // 0: Status
 	(*PtyBuffer)(nil),      // 1: PtyBuffer
 	(*PtyResize)(nil),      // 2: PtyResize
-	(*PtyError)(nil),       // 3: PtyError
-	(*ServerState)(nil),    // 4: ServerState
-	(*ConsoleMessage)(nil), // 5: ConsoleMessage
-	(*CommandRequest)(nil), // 6: CommandRequest
-	(*emptypb.Empty)(nil),  // 7: google.protobuf.Empty
+	(*PtyStatus)(nil),      // 3: PtyStatus
+	(*PtyError)(nil),       // 4: PtyError
+	(*ServerState)(nil),    // 5: ServerState
+	(*ConsoleMessage)(nil), // 6: ConsoleMessage
+	(*CommandRequest)(nil), // 7: CommandRequest
+	(*emptypb.Empty)(nil),  // 8: google.protobuf.Empty
 }
 var file_mcrunner_proto_depIdxs = []int32{
-	0,  // 0: ServerState.status:type_name -> ServerStatus
-	1,  // 1: ConsoleMessage.pty_buffer:type_name -> PtyBuffer
-	2,  // 2: ConsoleMessage.pty_resize:type_name -> PtyResize
-	3,  // 3: ConsoleMessage.pty_error:type_name -> PtyError
-	7,  // 4: MCRunner.StartServer:input_type -> google.protobuf.Empty
-	7,  // 5: MCRunner.StopServer:input_type -> google.protobuf.Empty
-	7,  // 6: MCRunner.KillServer:input_type -> google.protobuf.Empty
-	7,  // 7: MCRunner.RestartServer:input_type -> google.protobuf.Empty
-	6,  // 8: MCRunner.SendCommand:input_type -> CommandRequest
-	5,  // 9: MCRunner.StreamConsole:input_type -> ConsoleMessage
-	7,  // 10: MCRunner.StreamState:input_type -> google.protobuf.Empty
-	7,  // 11: MCRunner.StartServer:output_type -> google.protobuf.Empty
-	7,  // 12: MCRunner.StopServer:output_type -> google.protobuf.Empty
-	7,  // 13: MCRunner.KillServer:output_type -> google.protobuf.Empty
-	7,  // 14: MCRunner.RestartServer:output_type -> google.protobuf.Empty
-	7,  // 15: MCRunner.SendCommand:output_type -> google.protobuf.Empty
-	5,  // 16: MCRunner.StreamConsole:output_type -> ConsoleMessage
-	4,  // 17: MCRunner.StreamState:output_type -> ServerState
-	11, // [11:18] is the sub-list for method output_type
-	4,  // [4:11] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	0,  // 0: PtyStatus.status:type_name -> Status
+	0,  // 1: ServerState.status:type_name -> Status
+	1,  // 2: ConsoleMessage.pty_buffer:type_name -> PtyBuffer
+	2,  // 3: ConsoleMessage.pty_resize:type_name -> PtyResize
+	4,  // 4: ConsoleMessage.pty_error:type_name -> PtyError
+	3,  // 5: ConsoleMessage.pty_status:type_name -> PtyStatus
+	8,  // 6: MCRunner.StartServer:input_type -> google.protobuf.Empty
+	8,  // 7: MCRunner.StopServer:input_type -> google.protobuf.Empty
+	8,  // 8: MCRunner.KillServer:input_type -> google.protobuf.Empty
+	8,  // 9: MCRunner.RestartServer:input_type -> google.protobuf.Empty
+	7,  // 10: MCRunner.SendCommand:input_type -> CommandRequest
+	6,  // 11: MCRunner.StreamConsole:input_type -> ConsoleMessage
+	8,  // 12: MCRunner.StreamState:input_type -> google.protobuf.Empty
+	8,  // 13: MCRunner.StartServer:output_type -> google.protobuf.Empty
+	8,  // 14: MCRunner.StopServer:output_type -> google.protobuf.Empty
+	8,  // 15: MCRunner.KillServer:output_type -> google.protobuf.Empty
+	8,  // 16: MCRunner.RestartServer:output_type -> google.protobuf.Empty
+	8,  // 17: MCRunner.SendCommand:output_type -> google.protobuf.Empty
+	6,  // 18: MCRunner.StreamConsole:output_type -> ConsoleMessage
+	5,  // 19: MCRunner.StreamState:output_type -> ServerState
+	13, // [13:20] is the sub-list for method output_type
+	6,  // [6:13] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_mcrunner_proto_init() }
@@ -570,10 +638,11 @@ func file_mcrunner_proto_init() {
 	if File_mcrunner_proto != nil {
 		return
 	}
-	file_mcrunner_proto_msgTypes[4].OneofWrappers = []any{
+	file_mcrunner_proto_msgTypes[5].OneofWrappers = []any{
 		(*ConsoleMessage_PtyBuffer)(nil),
 		(*ConsoleMessage_PtyResize)(nil),
 		(*ConsoleMessage_PtyError)(nil),
+		(*ConsoleMessage_PtyStatus)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -581,7 +650,7 @@ func file_mcrunner_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mcrunner_proto_rawDesc), len(file_mcrunner_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
