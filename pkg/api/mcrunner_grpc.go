@@ -97,6 +97,7 @@ func (c *MCRunnerGRPC) handleStreamConsole(ctx context.Context, stream pb.MCRunn
 					return
 				}
 				errChan <- err
+				return
 			}
 
 			select {
