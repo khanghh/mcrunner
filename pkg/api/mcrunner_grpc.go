@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log"
 	"time"
@@ -19,6 +18,8 @@ import (
 func init() {
 	resolver.Register(&mcrunnerBuilder{})
 }
+
+type ConsoleMessageHandler func(msg *pb.ConsoleMessage)
 
 type MCRunnerGRPC struct {
 	conn *grpc.ClientConn
@@ -52,75 +53,109 @@ func (c *MCRunnerGRPC) SendCommand(ctx context.Context, cmd string) error {
 }
 
 func (c *MCRunnerGRPC) handleStreamConsole(ctx context.Context, stream pb.MCRunner_StreamConsoleClient, send <-chan *pb.ConsoleMessage, receive chan<- *pb.ConsoleMessage) error {
-	errChan := make(chan error, 1)
+	errChan := make(chan error, 2)
 
 	// Send goroutine
 	go func() {
-		defer close(errChan)
-		fmt.Println("send loop started")
 		for {
 			select {
 			case msg, ok := <-send:
 				if !ok {
 					errChan <- stream.CloseSend()
-					fmt.Println("send closed 1")
 					return
 				}
 				if err := stream.Send(msg); err != nil {
 					errChan <- err
-					fmt.Println("send closed 2")
 					return
 				}
 			case <-ctx.Done():
-				fmt.Println("send closed 3")
 				return
 			}
 		}
 	}()
 
 	// Receive loop
-	for {
-		msg, err := stream.Recv()
-		if err != nil {
-			if err == io.EOF {
-				return nil
+	go func() {
+		for {
+			msg, err := stream.Recv()
+			if err != nil {
+				if err == io.EOF {
+					errChan <- nil
+					return
+				}
+				errChan <- err
 			}
-			return err
-		}
 
-		select {
-		case receive <- msg:
-		case err := <-errChan:
-			return err
-		case <-ctx.Done():
-			return nil
+			select {
+			case receive <- msg:
+			case <-ctx.Done():
+				return
+			}
 		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-errChan:
+		return err
 	}
 }
 
 func (c *MCRunnerGRPC) StreamConsole(ctx context.Context, send <-chan *pb.ConsoleMessage, receive chan<- *pb.ConsoleMessage) error {
+	defer close(receive)
 	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
+		// open stream
 		stream, err := c.cl.StreamConsole(ctx)
 		if err != nil {
-			log.Println("Failed to create stream, retrying:", err)
-			time.Sleep(1 * time.Second) // backoff here if you want
-			continue
+			log.Println("Failed to open console stream:", err)
+		} else {
+			// handle bidirectional stream
+			streamCtx, cancel := context.WithCancel(ctx)
+			if err := c.handleStreamConsole(streamCtx, stream, send, receive); err != nil {
+				log.Println("Console stream closed:", err)
+			}
+			cancel()
 		}
 
-		err = c.handleStreamConsole(ctx, stream, send, receive)
+		// Wait 1 second before reconnecting
+		select {
+		case <-time.After(1 * time.Second):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+func (c *MCRunnerGRPC) StreamState(ctx context.Context, receive chan<- *pb.ServerState) error {
+	defer close(receive)
+	for {
+		stream, err := c.cl.StreamState(ctx, &emptypb.Empty{})
 		if err != nil {
-			log.Println("Stream error, reconnecting:", err)
-			time.Sleep(1 * time.Second) // optional backoff
-			continue
+			log.Println("Failed to open state stream:", err)
+		} else {
+			// Receive loop
+			for {
+				state, err := stream.Recv()
+				if err != nil {
+					log.Println("State stream closed:", err)
+					break
+				}
+
+				select {
+				case receive <- state:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
 		}
 
-		return nil
+		// Wait 1 second before reconnecting
+		select {
+		case <-time.After(1 * time.Second):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 }
 
