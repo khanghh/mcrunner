@@ -35,6 +35,7 @@ func (c *MCRunnerGRPC) StopServer(ctx context.Context) error {
 	_, err := c.cl.StopServer(ctx, &emptypb.Empty{})
 	return err
 }
+
 func (c *MCRunnerGRPC) KillServer(ctx context.Context) error {
 	_, err := c.cl.KillServer(ctx, &emptypb.Empty{})
 	return err
@@ -48,6 +49,14 @@ func (c *MCRunnerGRPC) RestartServer(ctx context.Context) error {
 func (c *MCRunnerGRPC) SendCommand(ctx context.Context, cmd string) error {
 	_, err := c.cl.SendCommand(ctx, &pb.CommandRequest{
 		Command: cmd,
+	})
+	return err
+}
+
+func (c *MCRunnerGRPC) ResizeConsole(ctx context.Context, rows int, cols int) error {
+	_, err := c.cl.ResizeConsole(ctx, &pb.PtyResize{
+		Rows: uint32(rows),
+		Cols: uint32(cols),
 	})
 	return err
 }

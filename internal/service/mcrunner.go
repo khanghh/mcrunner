@@ -113,18 +113,16 @@ func (m *MCRunnerService) StreamConsole(stream grpc.BidiStreamingServer[pb.Conso
 		switch payload := msg.Payload.(type) {
 		case *pb.ConsoleMessage_PtyBuffer:
 			if _, err := m.mcserver.Write(payload.PtyBuffer.Data); err != nil {
-				errText := fmt.Sprintf("Failed to write console input: %v", err)
-				fmt.Println(errText)
-				if err := stream.Send(NewPtyErrorMessage(errText)); err != nil {
+				fmt.Println("Failed to write console input:", err)
+				if err := stream.Send(mapMCCmdError(err)); err != nil {
 					return status.Errorf(codes.Unavailable, "Stream closed")
 				}
 			}
 		case *pb.ConsoleMessage_PtyResize:
 			rows, cols := int(payload.PtyResize.Rows), int(payload.PtyResize.Cols)
 			if err := m.mcserver.ResizeWindow(rows, cols); err != nil {
-				errText := fmt.Sprintf("Failed to resize PTY: %v", err)
-				fmt.Println(errText)
-				if err := stream.Send(NewPtyErrorMessage(errText)); err != nil {
+				fmt.Println("Failed to resize console:", err)
+				if err := stream.Send(mapMCCmdError(err)); err != nil {
 					return status.Errorf(codes.Unavailable, "Stream closed")
 				}
 			}

@@ -26,6 +26,7 @@ const (
 	MCRunner_RestartServer_FullMethodName = "/MCRunner/RestartServer"
 	MCRunner_GetState_FullMethodName      = "/MCRunner/GetState"
 	MCRunner_SendCommand_FullMethodName   = "/MCRunner/SendCommand"
+	MCRunner_ResizeConsole_FullMethodName = "/MCRunner/ResizeConsole"
 	MCRunner_StreamConsole_FullMethodName = "/MCRunner/StreamConsole"
 	MCRunner_StreamState_FullMethodName   = "/MCRunner/StreamState"
 )
@@ -41,10 +42,12 @@ type MCRunnerClient interface {
 	StopServer(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	KillServer(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	RestartServer(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Server state
 	GetState(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServerState, error)
-	// Issues a server console command
+	// Console commands
 	SendCommand(ctx context.Context, in *CommandRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// Streams live server console output and state
+	ResizeConsole(ctx context.Context, in *PtyResize, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Streams live console output and state
 	StreamConsole(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ConsoleMessage, ConsoleMessage], error)
 	StreamState(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ServerState], error)
 }
@@ -117,6 +120,16 @@ func (c *mCRunnerClient) SendCommand(ctx context.Context, in *CommandRequest, op
 	return out, nil
 }
 
+func (c *mCRunnerClient) ResizeConsole(ctx context.Context, in *PtyResize, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, MCRunner_ResizeConsole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *mCRunnerClient) StreamConsole(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ConsoleMessage, ConsoleMessage], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &MCRunner_ServiceDesc.Streams[0], MCRunner_StreamConsole_FullMethodName, cOpts...)
@@ -160,10 +173,12 @@ type MCRunnerServer interface {
 	StopServer(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	KillServer(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	RestartServer(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	// Server state
 	GetState(context.Context, *emptypb.Empty) (*ServerState, error)
-	// Issues a server console command
+	// Console commands
 	SendCommand(context.Context, *CommandRequest) (*emptypb.Empty, error)
-	// Streams live server console output and state
+	ResizeConsole(context.Context, *PtyResize) (*emptypb.Empty, error)
+	// Streams live console output and state
 	StreamConsole(grpc.BidiStreamingServer[ConsoleMessage, ConsoleMessage]) error
 	StreamState(*emptypb.Empty, grpc.ServerStreamingServer[ServerState]) error
 	mustEmbedUnimplementedMCRunnerServer()
@@ -193,6 +208,9 @@ func (UnimplementedMCRunnerServer) GetState(context.Context, *emptypb.Empty) (*S
 }
 func (UnimplementedMCRunnerServer) SendCommand(context.Context, *CommandRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendCommand not implemented")
+}
+func (UnimplementedMCRunnerServer) ResizeConsole(context.Context, *PtyResize) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResizeConsole not implemented")
 }
 func (UnimplementedMCRunnerServer) StreamConsole(grpc.BidiStreamingServer[ConsoleMessage, ConsoleMessage]) error {
 	return status.Errorf(codes.Unimplemented, "method StreamConsole not implemented")
@@ -329,6 +347,24 @@ func _MCRunner_SendCommand_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MCRunner_ResizeConsole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PtyResize)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCRunnerServer).ResizeConsole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCRunner_ResizeConsole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCRunnerServer).ResizeConsole(ctx, req.(*PtyResize))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _MCRunner_StreamConsole_Handler(srv interface{}, stream grpc.ServerStream) error {
 	return srv.(MCRunnerServer).StreamConsole(&grpc.GenericServerStream[ConsoleMessage, ConsoleMessage]{ServerStream: stream})
 }
@@ -377,6 +413,10 @@ var MCRunner_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SendCommand",
 			Handler:    _MCRunner_SendCommand_Handler,
+		},
+		{
+			MethodName: "ResizeConsole",
+			Handler:    _MCRunner_ResizeConsole_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

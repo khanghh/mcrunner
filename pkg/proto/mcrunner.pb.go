@@ -371,9 +371,9 @@ type ConsoleMessage struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Payload:
 	//
+	//	*ConsoleMessage_PtyError
 	//	*ConsoleMessage_PtyBuffer
 	//	*ConsoleMessage_PtyResize
-	//	*ConsoleMessage_PtyError
 	//	*ConsoleMessage_PtyStatus
 	Payload       isConsoleMessage_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
@@ -417,6 +417,15 @@ func (x *ConsoleMessage) GetPayload() isConsoleMessage_Payload {
 	return nil
 }
 
+func (x *ConsoleMessage) GetPtyError() *PtyError {
+	if x != nil {
+		if x, ok := x.Payload.(*ConsoleMessage_PtyError); ok {
+			return x.PtyError
+		}
+	}
+	return nil
+}
+
 func (x *ConsoleMessage) GetPtyBuffer() *PtyBuffer {
 	if x != nil {
 		if x, ok := x.Payload.(*ConsoleMessage_PtyBuffer); ok {
@@ -435,15 +444,6 @@ func (x *ConsoleMessage) GetPtyResize() *PtyResize {
 	return nil
 }
 
-func (x *ConsoleMessage) GetPtyError() *PtyError {
-	if x != nil {
-		if x, ok := x.Payload.(*ConsoleMessage_PtyError); ok {
-			return x.PtyError
-		}
-	}
-	return nil
-}
-
 func (x *ConsoleMessage) GetPtyStatus() *PtyStatus {
 	if x != nil {
 		if x, ok := x.Payload.(*ConsoleMessage_PtyStatus); ok {
@@ -457,27 +457,27 @@ type isConsoleMessage_Payload interface {
 	isConsoleMessage_Payload()
 }
 
+type ConsoleMessage_PtyError struct {
+	PtyError *PtyError `protobuf:"bytes,1,opt,name=pty_error,json=ptyError,proto3,oneof"`
+}
+
 type ConsoleMessage_PtyBuffer struct {
-	PtyBuffer *PtyBuffer `protobuf:"bytes,1,opt,name=pty_buffer,json=ptyBuffer,proto3,oneof"`
+	PtyBuffer *PtyBuffer `protobuf:"bytes,2,opt,name=pty_buffer,json=ptyBuffer,proto3,oneof"`
 }
 
 type ConsoleMessage_PtyResize struct {
-	PtyResize *PtyResize `protobuf:"bytes,2,opt,name=pty_resize,json=ptyResize,proto3,oneof"`
-}
-
-type ConsoleMessage_PtyError struct {
-	PtyError *PtyError `protobuf:"bytes,3,opt,name=pty_error,json=ptyError,proto3,oneof"`
+	PtyResize *PtyResize `protobuf:"bytes,3,opt,name=pty_resize,json=ptyResize,proto3,oneof"`
 }
 
 type ConsoleMessage_PtyStatus struct {
 	PtyStatus *PtyStatus `protobuf:"bytes,4,opt,name=pty_status,json=ptyStatus,proto3,oneof"`
 }
 
+func (*ConsoleMessage_PtyError) isConsoleMessage_Payload() {}
+
 func (*ConsoleMessage_PtyBuffer) isConsoleMessage_Payload() {}
 
 func (*ConsoleMessage_PtyResize) isConsoleMessage_Payload() {}
-
-func (*ConsoleMessage_PtyError) isConsoleMessage_Payload() {}
 
 func (*ConsoleMessage_PtyStatus) isConsoleMessage_Payload() {}
 
@@ -550,14 +550,14 @@ const file_mcrunner_proto_rawDesc = "" +
 	"\tcpu_limit\x18\a \x01(\x01R\bcpuLimit\x12\x1d\n" +
 	"\n" +
 	"uptime_sec\x18\b \x01(\x04R\tuptimeSec\"\xcc\x01\n" +
-	"\x0eConsoleMessage\x12+\n" +
+	"\x0eConsoleMessage\x12(\n" +
+	"\tpty_error\x18\x01 \x01(\v2\t.PtyErrorH\x00R\bptyError\x12+\n" +
 	"\n" +
-	"pty_buffer\x18\x01 \x01(\v2\n" +
+	"pty_buffer\x18\x02 \x01(\v2\n" +
 	".PtyBufferH\x00R\tptyBuffer\x12+\n" +
 	"\n" +
-	"pty_resize\x18\x02 \x01(\v2\n" +
-	".PtyResizeH\x00R\tptyResize\x12(\n" +
-	"\tpty_error\x18\x03 \x01(\v2\t.PtyErrorH\x00R\bptyError\x12+\n" +
+	"pty_resize\x18\x03 \x01(\v2\n" +
+	".PtyResizeH\x00R\tptyResize\x12+\n" +
 	"\n" +
 	"pty_status\x18\x04 \x01(\v2\n" +
 	".PtyStatusH\x00R\tptyStatusB\t\n" +
@@ -568,7 +568,7 @@ const file_mcrunner_proto_rawDesc = "" +
 	"\x0eSTATUS_UNKNOWN\x10\x00\x12\x12\n" +
 	"\x0eSTATUS_RUNNING\x10\x01\x12\x13\n" +
 	"\x0fSTATUS_STOPPING\x10\x02\x12\x12\n" +
-	"\x0eSTATUS_STOPPED\x10\x032\xde\x03\n" +
+	"\x0eSTATUS_STOPPED\x10\x032\x93\x04\n" +
 	"\bMCRunner\x12=\n" +
 	"\vStartServer\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\x12<\n" +
 	"\n" +
@@ -577,7 +577,9 @@ const file_mcrunner_proto_rawDesc = "" +
 	"KillServer\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\x12?\n" +
 	"\rRestartServer\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\x120\n" +
 	"\bGetState\x12\x16.google.protobuf.Empty\x1a\f.ServerState\x126\n" +
-	"\vSendCommand\x12\x0f.CommandRequest\x1a\x16.google.protobuf.Empty\x125\n" +
+	"\vSendCommand\x12\x0f.CommandRequest\x1a\x16.google.protobuf.Empty\x123\n" +
+	"\rResizeConsole\x12\n" +
+	".PtyResize\x1a\x16.google.protobuf.Empty\x125\n" +
 	"\rStreamConsole\x12\x0f.ConsoleMessage\x1a\x0f.ConsoleMessage(\x010\x01\x125\n" +
 	"\vStreamState\x12\x16.google.protobuf.Empty\x1a\f.ServerState0\x01B-Z+github.com/khanghh/mcrunner/pkg/proto;protob\x06proto3"
 
@@ -609,9 +611,9 @@ var file_mcrunner_proto_goTypes = []any{
 var file_mcrunner_proto_depIdxs = []int32{
 	0,  // 0: PtyStatus.status:type_name -> Status
 	0,  // 1: ServerState.status:type_name -> Status
-	1,  // 2: ConsoleMessage.pty_buffer:type_name -> PtyBuffer
-	2,  // 3: ConsoleMessage.pty_resize:type_name -> PtyResize
-	4,  // 4: ConsoleMessage.pty_error:type_name -> PtyError
+	4,  // 2: ConsoleMessage.pty_error:type_name -> PtyError
+	1,  // 3: ConsoleMessage.pty_buffer:type_name -> PtyBuffer
+	2,  // 4: ConsoleMessage.pty_resize:type_name -> PtyResize
 	3,  // 5: ConsoleMessage.pty_status:type_name -> PtyStatus
 	8,  // 6: MCRunner.StartServer:input_type -> google.protobuf.Empty
 	8,  // 7: MCRunner.StopServer:input_type -> google.protobuf.Empty
@@ -619,18 +621,20 @@ var file_mcrunner_proto_depIdxs = []int32{
 	8,  // 9: MCRunner.RestartServer:input_type -> google.protobuf.Empty
 	8,  // 10: MCRunner.GetState:input_type -> google.protobuf.Empty
 	7,  // 11: MCRunner.SendCommand:input_type -> CommandRequest
-	6,  // 12: MCRunner.StreamConsole:input_type -> ConsoleMessage
-	8,  // 13: MCRunner.StreamState:input_type -> google.protobuf.Empty
-	8,  // 14: MCRunner.StartServer:output_type -> google.protobuf.Empty
-	8,  // 15: MCRunner.StopServer:output_type -> google.protobuf.Empty
-	8,  // 16: MCRunner.KillServer:output_type -> google.protobuf.Empty
-	8,  // 17: MCRunner.RestartServer:output_type -> google.protobuf.Empty
-	5,  // 18: MCRunner.GetState:output_type -> ServerState
-	8,  // 19: MCRunner.SendCommand:output_type -> google.protobuf.Empty
-	6,  // 20: MCRunner.StreamConsole:output_type -> ConsoleMessage
-	5,  // 21: MCRunner.StreamState:output_type -> ServerState
-	14, // [14:22] is the sub-list for method output_type
-	6,  // [6:14] is the sub-list for method input_type
+	2,  // 12: MCRunner.ResizeConsole:input_type -> PtyResize
+	6,  // 13: MCRunner.StreamConsole:input_type -> ConsoleMessage
+	8,  // 14: MCRunner.StreamState:input_type -> google.protobuf.Empty
+	8,  // 15: MCRunner.StartServer:output_type -> google.protobuf.Empty
+	8,  // 16: MCRunner.StopServer:output_type -> google.protobuf.Empty
+	8,  // 17: MCRunner.KillServer:output_type -> google.protobuf.Empty
+	8,  // 18: MCRunner.RestartServer:output_type -> google.protobuf.Empty
+	5,  // 19: MCRunner.GetState:output_type -> ServerState
+	8,  // 20: MCRunner.SendCommand:output_type -> google.protobuf.Empty
+	8,  // 21: MCRunner.ResizeConsole:output_type -> google.protobuf.Empty
+	6,  // 22: MCRunner.StreamConsole:output_type -> ConsoleMessage
+	5,  // 23: MCRunner.StreamState:output_type -> ServerState
+	15, // [15:24] is the sub-list for method output_type
+	6,  // [6:15] is the sub-list for method input_type
 	6,  // [6:6] is the sub-list for extension type_name
 	6,  // [6:6] is the sub-list for extension extendee
 	0,  // [0:6] is the sub-list for field type_name
@@ -642,9 +646,9 @@ func file_mcrunner_proto_init() {
 		return
 	}
 	file_mcrunner_proto_msgTypes[5].OneofWrappers = []any{
+		(*ConsoleMessage_PtyError)(nil),
 		(*ConsoleMessage_PtyBuffer)(nil),
 		(*ConsoleMessage_PtyResize)(nil),
-		(*ConsoleMessage_PtyError)(nil),
 		(*ConsoleMessage_PtyStatus)(nil),
 	}
 	type x struct{}

@@ -44,9 +44,9 @@ message ServerState {
 // ConsoleMessage multiplexes PTY data and resize events in a single bidi stream
 message ConsoleMessage {
   oneof payload {
-    PtyBuffer pty_buffer = 1;
-    PtyResize pty_resize = 2;
-    PtyError pty_error = 3;
+    PtyError pty_error = 1;
+    PtyBuffer pty_buffer = 2;
+    PtyResize pty_resize = 3;
     PtyStatus pty_status = 4;
   }
 }
@@ -62,12 +62,15 @@ service MCRunner {
   rpc StopServer(google.protobuf.Empty) returns (google.protobuf.Empty);
   rpc KillServer(google.protobuf.Empty) returns (google.protobuf.Empty);
   rpc RestartServer(google.protobuf.Empty) returns (google.protobuf.Empty);
+
+  // Server state
   rpc GetState(google.protobuf.Empty) returns (ServerState);
 
-  // Issues a server console command
+  // Console commands
   rpc SendCommand(CommandRequest) returns (google.protobuf.Empty);
+  rpc ResizeConsole(PtyResize) returns (google.protobuf.Empty);
 
-  // Streams live server console output and state
+  // Streams live console output and state
   rpc StreamConsole(stream ConsoleMessage) returns (stream ConsoleMessage);
   rpc StreamState(google.protobuf.Empty) returns (stream ServerState);
 }
