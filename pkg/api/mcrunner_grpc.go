@@ -52,6 +52,10 @@ func (c *MCRunnerGRPC) SendCommand(ctx context.Context, cmd string) error {
 	return err
 }
 
+func (c *MCRunnerGRPC) GetState(ctx context.Context) (*pb.ServerState, error) {
+	return c.cl.GetState(ctx, &emptypb.Empty{})
+}
+
 func (c *MCRunnerGRPC) handleStreamConsole(ctx context.Context, stream pb.MCRunner_StreamConsoleClient, send <-chan *pb.ConsoleMessage, receive chan<- *pb.ConsoleMessage) error {
 	errChan := make(chan error, 2)
 

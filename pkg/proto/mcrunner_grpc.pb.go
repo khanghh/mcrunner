@@ -24,6 +24,7 @@ const (
 	MCRunner_StopServer_FullMethodName    = "/MCRunner/StopServer"
 	MCRunner_KillServer_FullMethodName    = "/MCRunner/KillServer"
 	MCRunner_RestartServer_FullMethodName = "/MCRunner/RestartServer"
+	MCRunner_GetState_FullMethodName      = "/MCRunner/GetState"
 	MCRunner_SendCommand_FullMethodName   = "/MCRunner/SendCommand"
 	MCRunner_StreamConsole_FullMethodName = "/MCRunner/StreamConsole"
 	MCRunner_StreamState_FullMethodName   = "/MCRunner/StreamState"
@@ -40,6 +41,7 @@ type MCRunnerClient interface {
 	StopServer(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	KillServer(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	RestartServer(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetState(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServerState, error)
 	// Issues a server console command
 	SendCommand(ctx context.Context, in *CommandRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Streams live server console output and state
@@ -89,6 +91,16 @@ func (c *mCRunnerClient) RestartServer(ctx context.Context, in *emptypb.Empty, o
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, MCRunner_RestartServer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCRunnerClient) GetState(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServerState, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ServerState)
+	err := c.cc.Invoke(ctx, MCRunner_GetState_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -148,6 +160,7 @@ type MCRunnerServer interface {
 	StopServer(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	KillServer(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	RestartServer(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	GetState(context.Context, *emptypb.Empty) (*ServerState, error)
 	// Issues a server console command
 	SendCommand(context.Context, *CommandRequest) (*emptypb.Empty, error)
 	// Streams live server console output and state
@@ -174,6 +187,9 @@ func (UnimplementedMCRunnerServer) KillServer(context.Context, *emptypb.Empty) (
 }
 func (UnimplementedMCRunnerServer) RestartServer(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RestartServer not implemented")
+}
+func (UnimplementedMCRunnerServer) GetState(context.Context, *emptypb.Empty) (*ServerState, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetState not implemented")
 }
 func (UnimplementedMCRunnerServer) SendCommand(context.Context, *CommandRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendCommand not implemented")
@@ -277,6 +293,24 @@ func _MCRunner_RestartServer_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MCRunner_GetState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCRunnerServer).GetState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCRunner_GetState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCRunnerServer).GetState(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _MCRunner_SendCommand_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CommandRequest)
 	if err := dec(in); err != nil {
@@ -335,6 +369,10 @@ var MCRunner_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RestartServer",
 			Handler:    _MCRunner_RestartServer_Handler,
+		},
+		{
+			MethodName: "GetState",
+			Handler:    _MCRunner_GetState_Handler,
 		},
 		{
 			MethodName: "SendCommand",

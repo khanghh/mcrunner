@@ -62,6 +62,7 @@ service MCRunner {
   rpc StopServer(google.protobuf.Empty) returns (google.protobuf.Empty);
   rpc KillServer(google.protobuf.Empty) returns (google.protobuf.Empty);
   rpc RestartServer(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc GetState(google.protobuf.Empty) returns (ServerState);
 
   // Issues a server console command
   rpc SendCommand(CommandRequest) returns (google.protobuf.Empty);

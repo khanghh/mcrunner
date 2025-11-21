@@ -568,14 +568,15 @@ const file_mcrunner_proto_rawDesc = "" +
 	"\x0eSTATUS_UNKNOWN\x10\x00\x12\x12\n" +
 	"\x0eSTATUS_RUNNING\x10\x01\x12\x13\n" +
 	"\x0fSTATUS_STOPPING\x10\x02\x12\x12\n" +
-	"\x0eSTATUS_STOPPED\x10\x032\xac\x03\n" +
+	"\x0eSTATUS_STOPPED\x10\x032\xde\x03\n" +
 	"\bMCRunner\x12=\n" +
 	"\vStartServer\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\x12<\n" +
 	"\n" +
 	"StopServer\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\x12<\n" +
 	"\n" +
 	"KillServer\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\x12?\n" +
-	"\rRestartServer\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\x126\n" +
+	"\rRestartServer\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\x120\n" +
+	"\bGetState\x12\x16.google.protobuf.Empty\x1a\f.ServerState\x126\n" +
 	"\vSendCommand\x12\x0f.CommandRequest\x1a\x16.google.protobuf.Empty\x125\n" +
 	"\rStreamConsole\x12\x0f.ConsoleMessage\x1a\x0f.ConsoleMessage(\x010\x01\x125\n" +
 	"\vStreamState\x12\x16.google.protobuf.Empty\x1a\f.ServerState0\x01B-Z+github.com/khanghh/mcrunner/pkg/proto;protob\x06proto3"
@@ -616,18 +617,20 @@ var file_mcrunner_proto_depIdxs = []int32{
 	8,  // 7: MCRunner.StopServer:input_type -> google.protobuf.Empty
 	8,  // 8: MCRunner.KillServer:input_type -> google.protobuf.Empty
 	8,  // 9: MCRunner.RestartServer:input_type -> google.protobuf.Empty
-	7,  // 10: MCRunner.SendCommand:input_type -> CommandRequest
-	6,  // 11: MCRunner.StreamConsole:input_type -> ConsoleMessage
-	8,  // 12: MCRunner.StreamState:input_type -> google.protobuf.Empty
-	8,  // 13: MCRunner.StartServer:output_type -> google.protobuf.Empty
-	8,  // 14: MCRunner.StopServer:output_type -> google.protobuf.Empty
-	8,  // 15: MCRunner.KillServer:output_type -> google.protobuf.Empty
-	8,  // 16: MCRunner.RestartServer:output_type -> google.protobuf.Empty
-	8,  // 17: MCRunner.SendCommand:output_type -> google.protobuf.Empty
-	6,  // 18: MCRunner.StreamConsole:output_type -> ConsoleMessage
-	5,  // 19: MCRunner.StreamState:output_type -> ServerState
-	13, // [13:20] is the sub-list for method output_type
-	6,  // [6:13] is the sub-list for method input_type
+	8,  // 10: MCRunner.GetState:input_type -> google.protobuf.Empty
+	7,  // 11: MCRunner.SendCommand:input_type -> CommandRequest
+	6,  // 12: MCRunner.StreamConsole:input_type -> ConsoleMessage
+	8,  // 13: MCRunner.StreamState:input_type -> google.protobuf.Empty
+	8,  // 14: MCRunner.StartServer:output_type -> google.protobuf.Empty
+	8,  // 15: MCRunner.StopServer:output_type -> google.protobuf.Empty
+	8,  // 16: MCRunner.KillServer:output_type -> google.protobuf.Empty
+	8,  // 17: MCRunner.RestartServer:output_type -> google.protobuf.Empty
+	5,  // 18: MCRunner.GetState:output_type -> ServerState
+	8,  // 19: MCRunner.SendCommand:output_type -> google.protobuf.Empty
+	6,  // 20: MCRunner.StreamConsole:output_type -> ConsoleMessage
+	5,  // 21: MCRunner.StreamState:output_type -> ServerState
+	14, // [14:22] is the sub-list for method output_type
+	6,  // [6:14] is the sub-list for method input_type
 	6,  // [6:6] is the sub-list for extension type_name
 	6,  // [6:6] is the sub-list for extension extendee
 	0,  // [0:6] is the sub-list for field type_name
