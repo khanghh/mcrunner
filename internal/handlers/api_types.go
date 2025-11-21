@@ -46,8 +46,3 @@ func BadRequestError(msg string) error {
 func InternalServerError(err error) error {
 	return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 }
-
-var (
-	ErrServerNotRunning     = fiber.NewError(fiber.StatusConflict, "server is not running")
-	ErrServerAlreadyRunning = fiber.NewError(fiber.StatusConflict, "server is already running")
-)

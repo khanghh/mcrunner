@@ -9,6 +9,11 @@ import (
 	"github.com/khanghh/mcrunner/pkg/api"
 )
 
+var (
+	ErrServerNotRunning     = fiber.NewError(fiber.StatusConflict, "server is not running")
+	ErrServerAlreadyRunning = fiber.NewError(fiber.StatusConflict, "server is already running")
+)
+
 type MCRunnerHandler struct {
 	mcserver *mccmd.MCServerCmd
 }
