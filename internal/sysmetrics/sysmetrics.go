@@ -6,16 +6,21 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
 // ResourceUsage holds container resource info
 type ResourceUsage struct {
-	MemoryUsage uint64  // current memory usage
-	MemoryLimit uint64  // max allowed memory (0 = unlimited)
-	CPUUsage    float64 // current CPU usage %
+	MemoryUsage uint64  // current memory usage in bytes
+	MemoryLimit uint64  // max allowed memory in bytes (0 = unlimited)
+	CPUUsage    float64 // current CPU usage percent
 	CPULimit    float64 // max CPUs allowed
+	DiskUsage   uint64  // current disk usage in bytes
+	DiskSize    uint64  // disk size in bytes
 }
+
+var cachedDiskSize uint64
 
 // GetMemoryUsageBytes returns current memory usage in bytes
 func GetMemoryUsageBytes() (uint64, error) {
@@ -171,11 +176,22 @@ func GetResourceUsage() (*ResourceUsage, error) {
 		return nil, err
 	}
 
+	// Disk metrics (best-effort; do not fail overall on error)
+	var diskUsed, diskTotal uint64
+	if du, dt, derr := getDiskStats("/"); derr == nil {
+		diskUsed, diskTotal = du, dt
+	} else if cachedDiskSize > 0 {
+		// If we previously cached a size, report it even if current stat fails
+		diskTotal = cachedDiskSize
+	}
+
 	return &ResourceUsage{
 		MemoryUsage: memUsed,
 		MemoryLimit: memMax,
 		CPUUsage:    cpuPercent,
 		CPULimit:    cpuMax,
+		DiskUsage:   diskUsed,
+		DiskSize:    diskTotal,
 	}, nil
 }
 
@@ -187,4 +203,26 @@ func readFirstExisting(paths []string) ([]byte, error) {
 		}
 	}
 	return nil, errors.New("none of the provided cgroup files exist")
+}
+
+// getDiskStats returns used and total bytes for the filesystem at path.
+// It also caches the total size globally on first successful read.
+func getDiskStats(path string) (used uint64, total uint64, err error) {
+	var st syscall.Statfs_t
+	if err = syscall.Statfs(path, &st); err != nil {
+		return 0, 0, err
+	}
+	// Use Bavail to represent space available to unprivileged user (matches df)
+	bs := uint64(st.Bsize)
+	total = uint64(st.Blocks) * bs
+	freeAvail := uint64(st.Bavail) * bs
+	if total >= freeAvail {
+		used = total - freeAvail
+	} else {
+		used = 0
+	}
+	if cachedDiskSize == 0 && total > 0 {
+		cachedDiskSize = total
+	}
+	return
 }

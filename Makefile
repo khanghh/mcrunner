@@ -22,16 +22,6 @@ build-docker:
 		-f ./docker/Dockerfile .
 	@echo "Done building."
 
-build-docker-web:
-	@echo "Building Docker image: mcrunner:web" 
-	docker build --rm --progress=plain \
-		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
-		--build-arg GIT_DATE=$(GIT_DATE) \
-		--build-arg GIT_TAG=$(GIT_TAG) \
-		-t registry.mineviet.com/mcrunner:web \
-		-f ./docker/Dockerfile.web .
-	@echo "Done building."
-
 clean:
 	@rm -rf $(BUILD_DIR)/*
 

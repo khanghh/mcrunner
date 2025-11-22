@@ -186,6 +186,7 @@ func (m *MCServerCmd) Start() error {
 		m.mu.Lock()
 		m.err = mErr
 		m.status = StatusStopped
+		m.startTime = nil
 		ptmx.Close()
 		close(m.done)
 		m.mu.Unlock()

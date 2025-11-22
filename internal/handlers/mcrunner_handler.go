@@ -31,6 +31,8 @@ func (h *MCRunnerHandler) getServerState() api.ServerState {
 	serverState.MemoryLimit = &usage.MemoryLimit
 	serverState.CPUUsage = &usage.CPUUsage
 	serverState.CPULimit = &usage.CPULimit
+	serverState.DiskUsage = &usage.DiskUsage
+	serverState.DiskSize = &usage.DiskSize
 
 	process := h.mcserver.GetProcess()
 	if process == nil {

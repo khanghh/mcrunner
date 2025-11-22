@@ -271,11 +271,13 @@ type ServerState struct {
 	Status        Status                 `protobuf:"varint,1,opt,name=status,proto3,enum=Status" json:"status,omitempty"`
 	Pid           int32                  `protobuf:"varint,2,opt,name=pid,proto3" json:"pid,omitempty"`
 	Tps           float64                `protobuf:"fixed64,3,opt,name=tps,proto3" json:"tps,omitempty"`
-	MemoryUsage   uint64                 `protobuf:"varint,4,opt,name=memory_usage,json=memoryUsage,proto3" json:"memory_usage,omitempty"`
-	MemoryLimit   uint64                 `protobuf:"varint,5,opt,name=memory_limit,json=memoryLimit,proto3" json:"memory_limit,omitempty"`
-	CpuUsage      float64                `protobuf:"fixed64,6,opt,name=cpu_usage,json=cpuUsage,proto3" json:"cpu_usage,omitempty"`
-	CpuLimit      float64                `protobuf:"fixed64,7,opt,name=cpu_limit,json=cpuLimit,proto3" json:"cpu_limit,omitempty"`
-	UptimeSec     uint64                 `protobuf:"varint,8,opt,name=uptime_sec,json=uptimeSec,proto3" json:"uptime_sec,omitempty"`
+	UptimeSec     uint64                 `protobuf:"varint,4,opt,name=uptime_sec,json=uptimeSec,proto3" json:"uptime_sec,omitempty"`
+	MemoryUsage   uint64                 `protobuf:"varint,5,opt,name=memory_usage,json=memoryUsage,proto3" json:"memory_usage,omitempty"`
+	MemoryLimit   uint64                 `protobuf:"varint,6,opt,name=memory_limit,json=memoryLimit,proto3" json:"memory_limit,omitempty"`
+	CpuUsage      float64                `protobuf:"fixed64,7,opt,name=cpu_usage,json=cpuUsage,proto3" json:"cpu_usage,omitempty"`
+	CpuLimit      float64                `protobuf:"fixed64,8,opt,name=cpu_limit,json=cpuLimit,proto3" json:"cpu_limit,omitempty"`
+	DiskUsage     uint64                 `protobuf:"varint,9,opt,name=disk_usage,json=diskUsage,proto3" json:"disk_usage,omitempty"`
+	DiskSize      uint64                 `protobuf:"varint,10,opt,name=disk_size,json=diskSize,proto3" json:"disk_size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -331,6 +333,13 @@ func (x *ServerState) GetTps() float64 {
 	return 0
 }
 
+func (x *ServerState) GetUptimeSec() uint64 {
+	if x != nil {
+		return x.UptimeSec
+	}
+	return 0
+}
+
 func (x *ServerState) GetMemoryUsage() uint64 {
 	if x != nil {
 		return x.MemoryUsage
@@ -359,9 +368,16 @@ func (x *ServerState) GetCpuLimit() float64 {
 	return 0
 }
 
-func (x *ServerState) GetUptimeSec() uint64 {
+func (x *ServerState) GetDiskUsage() uint64 {
 	if x != nil {
-		return x.UptimeSec
+		return x.DiskUsage
+	}
+	return 0
+}
+
+func (x *ServerState) GetDiskSize() uint64 {
+	if x != nil {
+		return x.DiskSize
 	}
 	return 0
 }
@@ -539,17 +555,21 @@ const file_mcrunner_proto_rawDesc = "" +
 	"\x06status\x18\x02 \x01(\x0e2\a.StatusR\x06status\"8\n" +
 	"\bPtyError\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\xf1\x01\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xad\x02\n" +
 	"\vServerState\x12\x1f\n" +
 	"\x06status\x18\x01 \x01(\x0e2\a.StatusR\x06status\x12\x10\n" +
 	"\x03pid\x18\x02 \x01(\x05R\x03pid\x12\x10\n" +
-	"\x03tps\x18\x03 \x01(\x01R\x03tps\x12!\n" +
-	"\fmemory_usage\x18\x04 \x01(\x04R\vmemoryUsage\x12!\n" +
-	"\fmemory_limit\x18\x05 \x01(\x04R\vmemoryLimit\x12\x1b\n" +
-	"\tcpu_usage\x18\x06 \x01(\x01R\bcpuUsage\x12\x1b\n" +
-	"\tcpu_limit\x18\a \x01(\x01R\bcpuLimit\x12\x1d\n" +
+	"\x03tps\x18\x03 \x01(\x01R\x03tps\x12\x1d\n" +
 	"\n" +
-	"uptime_sec\x18\b \x01(\x04R\tuptimeSec\"\xcc\x01\n" +
+	"uptime_sec\x18\x04 \x01(\x04R\tuptimeSec\x12!\n" +
+	"\fmemory_usage\x18\x05 \x01(\x04R\vmemoryUsage\x12!\n" +
+	"\fmemory_limit\x18\x06 \x01(\x04R\vmemoryLimit\x12\x1b\n" +
+	"\tcpu_usage\x18\a \x01(\x01R\bcpuUsage\x12\x1b\n" +
+	"\tcpu_limit\x18\b \x01(\x01R\bcpuLimit\x12\x1d\n" +
+	"\n" +
+	"disk_usage\x18\t \x01(\x04R\tdiskUsage\x12\x1b\n" +
+	"\tdisk_size\x18\n" +
+	" \x01(\x04R\bdiskSize\"\xcc\x01\n" +
 	"\x0eConsoleMessage\x12(\n" +
 	"\tpty_error\x18\x01 \x01(\v2\t.PtyErrorH\x00R\bptyError\x12+\n" +
 	"\n" +

@@ -216,6 +216,8 @@ func (h *MCRunnerService) getServerState() *pb.ServerState {
 	serverState.MemoryLimit = usage.MemoryLimit
 	serverState.CpuUsage = usage.CPUUsage
 	serverState.CpuLimit = usage.CPULimit
+	serverState.DiskUsage = usage.DiskUsage
+	serverState.DiskSize = usage.DiskSize
 
 	process := h.mcserver.GetProcess()
 	if process == nil {

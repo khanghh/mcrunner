@@ -43,10 +43,12 @@ type ServerState struct {
 	Status      ServerStatus `json:"status"`                // current server status
 	TPS         float64      `json:"tps"`                   // ticks per second
 	PID         int          `json:"pid,omitempty"`         // process ID
-	MemoryUsage *uint64      `json:"memoryUsage,omitempty"` // current memory usage
-	MemoryLimit *uint64      `json:"memoryLimit,omitempty"` // max allowed memory (0 = unlimited)
-	CPUUsage    *float64     `json:"cpuUsage,omitempty"`    // current CPU usage %
+	MemoryUsage *uint64      `json:"memoryUsage,omitempty"` // current memory usage in bytes
+	MemoryLimit *uint64      `json:"memoryLimit,omitempty"` // max allowed memory in bytes (0 = unlimited)
+	CPUUsage    *float64     `json:"cpuUsage,omitempty"`    // current CPU usage percent
 	CPULimit    *float64     `json:"cpuLimit,omitempty"`    // max CPUs allowed
+	DiskUsage   *uint64      `json:"diskUsage,omitempty"`   // current disk usage in bytes
+	DiskSize    *uint64      `json:"diskSize,omitempty"`    // disk size in bytes
 	UptimeSec   uint64       `json:"uptimeSec,omitempty"`   // server uptime in seconds
 }
 
