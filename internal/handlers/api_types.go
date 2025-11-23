@@ -8,9 +8,27 @@ const apiVersion = "1.0"
 
 // APIResponse represents a standard API response
 type APIResponse struct {
-	APIVersion string       `json:"apiVersion,omitempty"`
-	Data       interface{}  `json:"data,omitempty"`
-	Error      *fiber.Error `json:"error,omitempty"`
+	APIVersion string      `json:"apiVersion,omitempty"`
+	Data       interface{} `json:"data,omitempty"`
+	Error      *APIError   `json:"error,omitempty"`
+}
+
+type APIError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Reason  string `json:"reason,omitempty"`
+}
+
+func (e *APIError) Error() string {
+	return e.Message
+}
+
+func NewAPIError(code int, message string, reason string) *APIError {
+	return &APIError{
+		Code:    code,
+		Message: message,
+		Reason:  reason,
+	}
 }
 
 // ServerStatus represents the current server status

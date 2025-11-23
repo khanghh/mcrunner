@@ -17,10 +17,10 @@ import (
 )
 
 var (
-	ErrFileExists        = fiber.NewError(fiber.StatusConflict, "file is already exists")
-	ErrFileNotFound      = fiber.NewError(fiber.StatusNotFound, "file not found")
-	ErrNoPermissions     = fiber.NewError(fiber.StatusForbidden, "no permissions")
-	ErrDirectoryNotEmpty = fiber.NewError(fiber.StatusBadRequest, "directory is not empty")
+	ErrFileExists        = NewAPIError(fiber.StatusConflict, "file is already exists", "FILE_EXISTS")
+	ErrFileNotFound      = NewAPIError(fiber.StatusNotFound, "file not found", "FILE_NOT_FOUND")
+	ErrNoPermissions     = NewAPIError(fiber.StatusForbidden, "no permissions", "NO_PERMISSIONS")
+	ErrDirectoryNotEmpty = NewAPIError(fiber.StatusBadRequest, "directory is not empty", "DIRECTORY_NOT_EMPTY")
 )
 
 type FileType int
