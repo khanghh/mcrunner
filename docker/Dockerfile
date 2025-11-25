@@ -22,6 +22,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 # ---- Runtime stage ----
 FROM eclipse-temurin:17-jre-alpine 
 RUN apk add --no-cache \
+  git \
   ca-certificates \
   tzdata \
   && update-ca-certificates

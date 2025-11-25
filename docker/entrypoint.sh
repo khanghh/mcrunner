@@ -7,6 +7,15 @@ if [ -n "$TZ" ]; then
     echo "$TZ" > /etc/timezone
 fi
 
+# initialize /minecraft folder if run.sh is missing
+if [ ! -f /minecraft/run.sh ]; then
+    echo "Initializing /minecraft folder..."
+    find /minecraft -mindepth 1 -delete
+    git clone --branch ${GIT_BRANCH} --single-branch --depth=1 ${GIT_REPO} /minecraft
+    touch /minecraft/run.sh
+    chmod +x /minecraft/run.sh
+fi
+
 # Prepare log file
 mkdir -p /minecraft/logs
 touch /minecraft/logs/cron.log
