@@ -94,7 +94,7 @@ func (h *MCRunnerHandler) PostRestartServer(ctx *fiber.Ctx) error {
 }
 
 func (h *MCRunnerHandler) PostKillServer(ctx *fiber.Ctx) error {
-	if h.mcserver.GetStatus() != mccmd.StatusRunning {
+	if h.mcserver.GetStatus() == mccmd.StatusStopped {
 		return ErrServerNotRunning
 	}
 	if err := h.mcserver.Kill(); err != nil {
