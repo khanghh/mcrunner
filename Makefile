@@ -5,6 +5,9 @@ GIT_COMMIT=$(shell git rev-parse HEAD)
 GIT_DATE=$(shell git show -s --format=%cI HEAD)
 GIT_TAG=$(shell git describe --tags --always --dirty)
 
+DOCKERFILE ?= ./docker/Dockerfile
+DOCKERTAG ?= latest
+
 LDFLAGS=-ldflags "-w -s -X 'main.gitCommit=$(GIT_COMMIT)' -X 'main.gitDate=$(GIT_DATE)' -X 'main.gitTag=$(GIT_TAG)'"
 
 mcrunner:
@@ -18,8 +21,8 @@ build-docker:
 		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
 		--build-arg GIT_DATE=$(GIT_DATE) \
 		--build-arg GIT_TAG=$(GIT_TAG) \
-		-t registry.mineviet.com/mcrunner:latest \
-		-f ./docker/Dockerfile .
+		-t registry.mineviet.com/mcrunner:$(DOCKERTAG) \
+		-f $(DOCKERFILE) .
 	@echo "Done building."
 
 clean:
