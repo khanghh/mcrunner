@@ -1,10 +1,15 @@
 package handlers
 
 import (
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 )
 
-const apiVersion = "1.0"
+const (
+	apiVersion        = "1.0"
+	apiRequestTimeout = 30 * time.Second
+)
 
 // APIResponse represents a standard API response
 type APIResponse struct {
@@ -45,6 +50,7 @@ type ServerState struct {
 	Status      ServerStatus `json:"status"`                // current server status
 	TPS         float64      `json:"tps"`                   // ticks per second
 	PID         int          `json:"pid,omitempty"`         // process ID
+	IPAddress   string       `json:"ipAddress,omitempty"`   // server IP address
 	MemoryUsage *uint64      `json:"memoryUsage,omitempty"` // current memory usage
 	MemoryLimit *uint64      `json:"memoryLimit,omitempty"` // max allowed memory (0 = unlimited)
 	CPUUsage    *float64     `json:"cpuUsage,omitempty"`    // current CPU usage %

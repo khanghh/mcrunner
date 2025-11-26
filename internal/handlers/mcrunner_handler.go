@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -20,13 +21,18 @@ type MCRunnerHandler struct {
 
 func (h *MCRunnerHandler) getServerState() api.ServerState {
 	status := h.mcserver.GetStatus()
+
+	var serverIPAddr string
+	if ipAddr, err := sysmetrics.GetOutboundIP(); err == nil {
+		serverIPAddr = ipAddr.String()
+	}
+
 	serverState := api.ServerState{
-		Status: api.ServerStatus(status),
+		Status:    api.ServerStatus(status),
+		IPAddress: serverIPAddr,
 	}
-	usage, err := sysmetrics.GetResourceUsage()
-	if err != nil {
-		return serverState
-	}
+
+	usage := sysmetrics.GetResourceUsage()
 	serverState.MemoryUsage = &usage.MemoryUsage
 	serverState.MemoryLimit = &usage.MemoryLimit
 	serverState.CPUUsage = &usage.CPUUsage
@@ -43,6 +49,22 @@ func (h *MCRunnerHandler) getServerState() api.ServerState {
 	}
 	serverState.PID = process.Pid
 	return serverState
+}
+
+func (h *MCRunnerHandler) runWithTimeout(ctx *fiber.Ctx, fn func() error) error {
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- fn()
+	}()
+	execCtx, cancel := context.WithTimeout(ctx.Context(), apiRequestTimeout)
+	defer cancel()
+
+	select {
+	case err := <-errCh:
+		return err
+	case <-execCtx.Done():
+		return fiber.NewError(fiber.StatusRequestTimeout, "request timed out")
+	}
 }
 
 func (h *MCRunnerHandler) PostCommand(ctx *fiber.Ctx) error {
@@ -63,8 +85,15 @@ func (h *MCRunnerHandler) PostStartServer(ctx *fiber.Ctx) error {
 	if h.mcserver.GetStatus() == mccmd.StatusRunning {
 		return ErrServerAlreadyRunning
 	}
-	if err := h.mcserver.Start(); err != nil {
-		return InternalServerError(err)
+
+	err := h.runWithTimeout(ctx, func() error {
+		if err := h.mcserver.Start(); err != nil {
+			return InternalServerError(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	return ctx.SendStatus(fiber.StatusOK)
@@ -74,9 +103,17 @@ func (h *MCRunnerHandler) PostStopServer(ctx *fiber.Ctx) error {
 	if h.mcserver.GetStatus() != mccmd.StatusRunning {
 		return ErrServerNotRunning
 	}
-	if err := h.mcserver.Stop(); err != nil {
-		return InternalServerError(err)
+
+	err := h.runWithTimeout(ctx, func() error {
+		if err := h.mcserver.Stop(); err != nil {
+			return InternalServerError(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
+
 	return ctx.SendStatus(fiber.StatusOK)
 }
 
@@ -84,12 +121,20 @@ func (h *MCRunnerHandler) PostRestartServer(ctx *fiber.Ctx) error {
 	if h.mcserver.GetStatus() != mccmd.StatusRunning {
 		return ErrServerNotRunning
 	}
-	if err := h.mcserver.Stop(); err != nil {
-		return InternalServerError(err)
+
+	err := h.runWithTimeout(ctx, func() error {
+		if err := h.mcserver.Stop(); err != nil {
+			return InternalServerError(err)
+		}
+		if err := h.mcserver.Start(); err != nil {
+			return InternalServerError(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
-	if err := h.mcserver.Start(); err != nil {
-		return InternalServerError(err)
-	}
+
 	return ctx.SendStatus(fiber.StatusOK)
 }
 
@@ -97,9 +142,17 @@ func (h *MCRunnerHandler) PostKillServer(ctx *fiber.Ctx) error {
 	if h.mcserver.GetStatus() == mccmd.StatusStopped {
 		return ErrServerNotRunning
 	}
-	if err := h.mcserver.Kill(); err != nil {
-		return InternalServerError(err)
+
+	err := h.runWithTimeout(ctx, func() error {
+		if err := h.mcserver.Kill(); err != nil {
+			return InternalServerError(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
+
 	return ctx.SendStatus(fiber.StatusOK)
 }
 

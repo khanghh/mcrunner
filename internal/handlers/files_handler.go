@@ -41,7 +41,7 @@ func NewFSHandler(svc LocalFileService) *FSHandler {
 }
 
 // Helper functions
-func mapLocalFileServiceError(c *fiber.Ctx, err error) error {
+func mapLocalFileServiceError(ctx *fiber.Ctx, err error) error {
 	if os.IsNotExist(err) || errors.Is(err, file.ErrFileNotFound) {
 		return ErrFileNotFound
 	}
