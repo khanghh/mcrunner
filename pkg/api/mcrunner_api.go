@@ -43,6 +43,7 @@ type ServerState struct {
 	Status      ServerStatus `json:"status"`                // current server status
 	TPS         float64      `json:"tps"`                   // ticks per second
 	PID         int          `json:"pid,omitempty"`         // process ID
+	IPAddress   string       `json:"ipAddress,omitempty"`   // server IP address
 	MemoryUsage *uint64      `json:"memoryUsage,omitempty"` // current memory usage in bytes
 	MemoryLimit *uint64      `json:"memoryLimit,omitempty"` // max allowed memory in bytes (0 = unlimited)
 	CPUUsage    *float64     `json:"cpuUsage,omitempty"`    // current CPU usage percent
