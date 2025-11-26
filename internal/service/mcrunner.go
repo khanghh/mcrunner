@@ -208,10 +208,7 @@ func (h *MCRunnerService) getServerState() *pb.ServerState {
 		Status: statusCode,
 	}
 
-	usage, err := sysmetrics.GetResourceUsage()
-	if err != nil {
-		return serverState
-	}
+	usage := sysmetrics.GetResourceUsage()
 	serverState.MemoryUsage = usage.MemoryUsage
 	serverState.MemoryLimit = usage.MemoryLimit
 	serverState.CpuUsage = usage.CPUUsage
