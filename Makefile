@@ -7,6 +7,7 @@ GIT_TAG=$(shell git describe --tags --always --dirty)
 
 DOCKERFILE ?= ./docker/Dockerfile
 DOCKERTAG ?= latest
+JAVA_VERSION ?= 21
 
 LDFLAGS=-ldflags "-w -s -X 'main.gitCommit=$(GIT_COMMIT)' -X 'main.gitDate=$(GIT_DATE)' -X 'main.gitTag=$(GIT_TAG)'"
 
@@ -21,6 +22,7 @@ build-docker:
 		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
 		--build-arg GIT_DATE=$(GIT_DATE) \
 		--build-arg GIT_TAG=$(GIT_TAG) \
+		--build-arg JAVA_VERSION=$(JAVA_VERSION) \
 		-t registry.mineviet.com/mcrunner:$(DOCKERTAG) \
 		-f $(DOCKERFILE) .
 	@echo "Done building."

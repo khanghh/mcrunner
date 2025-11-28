@@ -9,20 +9,23 @@ ARG GIT_TAG
 
 WORKDIR /workdir
 
+RUN apk add --no-cache git bash build-base
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
+
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-  go build -ldflags "\
-    -w -s \
+
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 \
+  go build -gcflags="all=-N -l" -ldflags "\
     -X 'main.gitCommit=${GIT_COMMIT}' \
     -X 'main.gitDate=${GIT_DATE}' \
     -X 'main.gitTag=${GIT_TAG}'" \
   -o mcrunner main.go
 
 # ---- Runtime stage ----
-FROM eclipse-temurin:${JAVA_VERSION}-jre-alpine
+FROM eclipse-temurin:${JAVA_VERSION}-jre-alpine 
 
 ENV TZ=Asia/Ho_Chi_Minh
 
@@ -34,13 +37,16 @@ RUN apk add --no-cache \
 
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
+
 WORKDIR /minecraft
 
+COPY . /workdir
+COPY --from=builder /go/bin/dlv /usr/local/bin/dlv
 COPY --from=builder /workdir/mcrunner /usr/bin/mcrunner
 
 COPY ./docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-EXPOSE 3000 25565
+EXPOSE 3000 2345 25565
 
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/dlv", "--listen=:2345", "--headless=true", "--api-version=2", "--accept-multiclient", "exec", "/usr/bin/mcrunner"]
