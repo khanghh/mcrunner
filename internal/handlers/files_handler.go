@@ -42,10 +42,10 @@ func NewFSHandler(svc LocalFileService) *FSHandler {
 
 // Helper functions
 func mapLocalFileServiceError(ctx *fiber.Ctx, err error) error {
-	if os.IsNotExist(err) || errors.Is(err, file.ErrFileNotFound) {
+	if os.IsNotExist(err) || errors.Is(err, file.ErrNotFound) || errors.Is(err, fs.ErrNotExist) {
 		return ErrFileNotFound
 	}
-	if os.IsPermission(err) {
+	if os.IsPermission(err) || errors.Is(err, fs.ErrPermission) {
 		return ErrNoPermissions
 	}
 	if errors.Is(err, file.ErrDirNotEmpty) {
@@ -206,7 +206,7 @@ func (h *FSHandler) handleUploadFile(ctx *fiber.Ctx, rel string) error {
 	if !overwrite {
 		if _, err := h.svc.Stat(destRel); err == nil {
 			return ErrFileExists
-		} else if !os.IsNotExist(err) {
+		} else if !errors.Is(err, file.ErrNotFound) {
 			return mapLocalFileServiceError(ctx, err)
 		}
 	}

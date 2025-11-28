@@ -48,7 +48,7 @@ func (s *LocalFileService) Stat(rel string) (os.FileInfo, error) {
 	fi, err := os.Stat(abs)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, ErrFileNotFound
+			return nil, ErrNotFound
 		}
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (s *LocalFileService) List(rel string) ([]os.FileInfo, error) {
 	fi, err := os.Stat(abs)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, ErrFileNotFound
+			return nil, ErrNotFound
 		}
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (s *LocalFileService) Open(rel string) (*os.File, os.FileInfo, error) {
 	fi, err := os.Stat(abs)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil, ErrFileNotFound
+			return nil, nil, ErrNotFound
 		}
 		return nil, nil, err
 	}
@@ -118,7 +118,7 @@ func (s *LocalFileService) ReadFile(rel string) ([]byte, error) {
 	fi, err := os.Stat(abs)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, ErrFileNotFound
+			return nil, ErrNotFound
 		}
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func (s *LocalFileService) WriteFile(rel string, data []byte, create bool) error
 	if !create {
 		if _, err := os.Stat(abs); err != nil {
 			if os.IsNotExist(err) {
-				return ErrFileNotFound
+				return ErrNotFound
 			}
 			return err
 		}
@@ -194,7 +194,7 @@ func (s *LocalFileService) Delete(rel string) error {
 	fi, err := os.Stat(abs)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return ErrFileNotFound
+			return ErrNotFound
 		}
 		return err
 	}
@@ -222,7 +222,7 @@ func (s *LocalFileService) DeleteRecursive(rel string) error {
 	}
 	if _, err := os.Stat(abs); err != nil {
 		if os.IsNotExist(err) {
-			return ErrFileNotFound
+			return ErrNotFound
 		}
 		return err
 	}
@@ -251,7 +251,7 @@ func (s *LocalFileService) Rename(relPath string, newPath string, overwrite bool
 	}
 	if _, err := os.Stat(absSrcPath); err != nil {
 		if os.IsNotExist(err) {
-			return ErrFileNotFound
+			return ErrNotFound
 		}
 		return err
 	}

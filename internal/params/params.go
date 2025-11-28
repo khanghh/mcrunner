@@ -3,7 +3,7 @@ package params
 import "time"
 
 const (
-	ServerBodyLimit              = 1048576 // 1 MiB
+	ServerBodyLimit              = 1 * 1024 * 1024 * 1024 // 1 MiB
 	ServerIdleTimeout            = 30 * time.Second
 	ServerReadTimeout            = 10 * time.Second
 	ServerWriteTimeout           = 10 * time.Second
