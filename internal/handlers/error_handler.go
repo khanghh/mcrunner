@@ -2,9 +2,9 @@ package handlers
 
 import (
 	"errors"
-	"log"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/khanghh/mcrunner/pkg/logger"
 )
 
 func ErrorHandler(ctx *fiber.Ctx, err error) error {
@@ -26,7 +26,7 @@ func ErrorHandler(ctx *fiber.Ctx, err error) error {
 		})
 	}
 
-	log.Println("handle error:", err.Error())
+	logger.Errorln("Unhandled error", "error", err.Error())
 	return ctx.Status(fiber.StatusInternalServerError).JSON(APIResponse{
 		APIVersion: apiVersion,
 		Error: &APIError{

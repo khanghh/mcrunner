@@ -3,9 +3,9 @@ package api
 import (
 	"context"
 	"io"
-	"log"
 	"time"
 
+	"github.com/khanghh/mcrunner/pkg/logger"
 	pb "github.com/khanghh/mcrunner/pkg/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
@@ -122,12 +122,12 @@ func (c *MCRunnerGRPC) StreamConsole(ctx context.Context, send <-chan *pb.Consol
 		// open stream
 		stream, err := c.cl.StreamConsole(ctx)
 		if err != nil {
-			log.Println("Failed to open console stream:", err)
+			logger.Error("Failed to open console stream", "error", err)
 		} else {
 			// handle bidirectional stream
 			streamCtx, cancel := context.WithCancel(ctx)
 			if err := c.handleStreamConsole(streamCtx, stream, send, receive); err != nil {
-				log.Println("Console stream closed:", err)
+				logger.Error("Console stream closed", "error", err)
 			}
 			cancel()
 		}
@@ -146,13 +146,13 @@ func (c *MCRunnerGRPC) StreamState(ctx context.Context, receive chan<- *pb.Serve
 	for {
 		stream, err := c.cl.StreamState(ctx, &emptypb.Empty{})
 		if err != nil {
-			log.Println("Failed to open state stream:", err)
+			logger.Error("Failed to open state stream", "error", err)
 		} else {
 			// Receive loop
 			for {
 				state, err := stream.Recv()
 				if err != nil {
-					log.Println("State stream closed:", err)
+					logger.Error("State stream closed", "error", err)
 					break
 				}
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -16,13 +17,18 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/khanghh/mcrunner/internal/file"
 	"github.com/khanghh/mcrunner/internal/handlers"
+	"github.com/khanghh/mcrunner/internal/mcagent"
 	"github.com/khanghh/mcrunner/internal/mccmd"
 	"github.com/khanghh/mcrunner/internal/params"
 	"github.com/khanghh/mcrunner/internal/service"
+	"github.com/khanghh/mcrunner/pkg/logger"
 	pb "github.com/khanghh/mcrunner/pkg/proto"
 	"github.com/urfave/cli/v2"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -33,32 +39,36 @@ var (
 )
 
 var (
+	pluginConfigFileFlag = &cli.StringFlag{
+		Name:  "plconfig",
+		Usage: "Path to agent plugin configuration file",
+		Value: "plugins/mcrunner/config.yaml",
+	}
 	commandFlag = &cli.StringFlag{
-		Name:    "command",
-		Aliases: []string{"cmd", "c"},
-		Usage:   "Minecraft server command to run",
+		Name:  "command",
+		Usage: "Minecraft server command to run",
 	}
 	rootDirFlag = &cli.StringFlag{
-		Name:    "rootdir",
-		Aliases: []string{"d"},
-		Usage:   "File manager root directory",
+		Name:  "rootdir",
+		Usage: "File manager root directory",
 	}
 	inputFifoFlag = &cli.StringFlag{
-		Name:    "fifo",
-		Aliases: []string{"f"},
-		Usage:   "Path to input FIFO file for sending commands to the Minecraft server",
+		Name:  "fifo",
+		Usage: "Path to input FIFO file for sending commands to the Minecraft server",
 	}
 	grpcListenFlag = &cli.StringFlag{
-		Name:    "grpc",
-		Aliases: []string{"g"},
-		Usage:   "gRPC server listen address (host:port)",
-		Value:   ":50051",
+		Name:  "grpc",
+		Usage: "gRPC server listen address (host:port)",
+		Value: ":50051",
 	}
 	httpListenFlag = &cli.StringFlag{
-		Name:    "http",
-		Aliases: []string{"l"},
-		Usage:   "HTTP server listen address (host:port)",
-		Value:   ":3000",
+		Name:  "http",
+		Usage: "HTTP server listen address (host:port)",
+		Value: ":3000",
+	}
+	secretKeyFlag = &cli.StringFlag{
+		Name:  "secret",
+		Usage: "Secret key to access the HTTP and gRPC APIs",
 	}
 )
 
@@ -189,14 +199,38 @@ func initListeners(grpcAddr, httpAddr string) (net.Listener, net.Listener, error
 	return grpcListener, httpListener, nil
 }
 
+func grpcAuthInterceptor(secretKey string) grpc.ServerOption {
+	return grpc.UnaryInterceptor(func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		if secretKey == "" {
+			return handler(ctx, req)
+		}
+
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			return nil, status.Errorf(codes.Unauthenticated, "missing metadata")
+		}
+		authHeaders := md.Get("authorization")
+		if len(authHeaders) == 0 || authHeaders[0] != fmt.Sprintf("Bearer %s", secretKey) {
+			return nil, status.Errorf(codes.Unauthenticated, "invalid token")
+		}
+		return handler(ctx, req)
+	})
+}
+
 // run is the main entry point for the CLI application.
 // It initializes and starts the Minecraft server command, sets up HTTP API routes,
 // and handles graceful shutdown on receiving termination signals.
 func run(cli *cli.Context) error {
 	rootDir := cli.String(rootDirFlag.Name)
+	agentConfigFile := cli.String(pluginConfigFileFlag.Name)
 	gprcListenAddr := cli.String(grpcListenFlag.Name)
 	httpListenAddr := cli.String(httpListenFlag.Name)
+	secretKey := cli.String(secretKeyFlag.Name)
 	serverCmd := cli.String(commandFlag.Name)
+
+	if secretKey == "" {
+		logger.Warnln("Secret key is not set, the HTTP and gRPC APIs will be accessible without authentication.")
+	}
 	if serverCmd == "" {
 		return fmt.Errorf("server command must not be empty")
 	}
@@ -210,9 +244,24 @@ func run(cli *cli.Context) error {
 		go fifoInputLoop(mcserverCmd, fifoPath)
 	}
 
+	mcagent := mcagent.NewMCAgentBridge(agentConfigFile)
+
 	// handlers
 	mcrunnerHandler := handlers.NewMCRunnerHandler(mcserverCmd)
 	fsHandler := handlers.NewFSHandler(localFilesSvc)
+	mcagentHandler := handlers.NewMCAgentPluginHandler(mcagent)
+
+	// middlewares
+	authMiddleware := func(c *fiber.Ctx) error {
+		if secretKey == "" {
+			return c.Next()
+		}
+		authHeader := c.Get("Authorization")
+		if authHeader != fmt.Sprintf("Bearer %s", secretKey) {
+			return c.SendStatus(fiber.StatusUnauthorized)
+		}
+		return c.Next()
+	}
 
 	// setup HTTP server and routes
 	router := fiber.New(fiber.Config{
@@ -227,23 +276,27 @@ func run(cli *cli.Context) error {
 		AllowHeaders: "*",
 	}))
 
-	router.Get("/api/fs/*", fsHandler.Get)
-	router.Post("/api/fs/*", fsHandler.Post)
-	router.Put("/api/fs/*", fsHandler.Put)
-	router.Patch("/api/fs/*", fsHandler.Patch)
-	router.Delete("/api/fs/*", fsHandler.Delete)
-	router.Get("/api/mc/state", mcrunnerHandler.GetState)
-	router.Post("/api/mc/command", mcrunnerHandler.PostCommand)
-	router.Post("/api/mc/start", mcrunnerHandler.PostStartServer)
-	router.Post("/api/mc/stop", mcrunnerHandler.PostStopServer)
-	router.Post("/api/mc/restart", mcrunnerHandler.PostRestartServer)
-	router.Post("/api/mc/kill", mcrunnerHandler.PostKillServer)
-	router.Get("/readyz", func(c *fiber.Ctx) error {
+	apiRouter := router.Group("/api", authMiddleware)
+	apiRouter.Get("/fs/*", fsHandler.Get)
+	apiRouter.Post("/fs/*", fsHandler.Post)
+	apiRouter.Put("/fs/*", fsHandler.Put)
+	apiRouter.Patch("/fs/*", fsHandler.Patch)
+	apiRouter.Delete("/fs/*", fsHandler.Delete)
+	apiRouter.Get("/mc/state", mcrunnerHandler.GetState)
+	apiRouter.Post("/mc/command", mcrunnerHandler.PostCommand)
+	apiRouter.Post("/mc/start", mcrunnerHandler.PostStartServer)
+	apiRouter.Post("/mc/stop", mcrunnerHandler.PostStopServer)
+	apiRouter.Post("/mc/restart", mcrunnerHandler.PostRestartServer)
+	apiRouter.Post("/mc/kill", mcrunnerHandler.PostKillServer)
+
+	router.Post("/login/callback", mcagentHandler.PostLoginCallback)
+	router.Post("/logout/callback", mcagentHandler.PostLogoutCallback)
+	router.Get("/livez", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
-	mcrunnerSvc := service.NewMCRunnerService(mcserverCmd)
-	server := grpc.NewServer(
+	mcrunnerSvc := service.NewMCRunnerService(mcserverCmd, mcagent)
+	grpcServer := grpc.NewServer(
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			MaxConnectionIdle: 0,
 			Time:              1 * time.Minute,  // ping every 60s
@@ -253,8 +306,9 @@ func run(cli *cli.Context) error {
 			MinTime:             30 * time.Second, // clients must wait at least this between pings
 			PermitWithoutStream: true,             // allow pings even with no active RPC
 		}),
+		grpcAuthInterceptor(secretKey),
 	)
-	pb.RegisterMCRunnerServer(server, mcrunnerSvc)
+	pb.RegisterMCRunnerServer(grpcServer, mcrunnerSvc)
 
 	// Handle signals: first triggers graceful shutdown, second forces exit
 	sigCh := make(chan os.Signal, 1)
@@ -263,7 +317,7 @@ func run(cli *cli.Context) error {
 		<-sigCh
 		go func() {
 			mcserverCmd.Stop()
-			server.GracefulStop()
+			grpcServer.GracefulStop()
 			router.Shutdown()
 			close(sigCh)
 		}()
@@ -287,7 +341,7 @@ func run(cli *cli.Context) error {
 	errCh := make(chan error)
 	go func() {
 		fmt.Printf("Listening gRPC at %s\n", gprcListenAddr)
-		if err := server.Serve(grpcListener); err != nil {
+		if err := grpcServer.Serve(grpcListener); err != nil {
 			errCh <- fmt.Errorf("gRPC server error: %v", err)
 		}
 	}()

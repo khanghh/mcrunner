@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -69,4 +70,12 @@ func BadRequestError(msg string) error {
 
 func InternalServerError(err error) error {
 	return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+}
+
+func ParseAPIError(body []byte) (*APIError, error) {
+	apiResp := APIResponse{}
+	if err := json.Unmarshal(body, &apiResp); err != nil {
+		return nil, err
+	}
+	return apiResp.Error, nil
 }

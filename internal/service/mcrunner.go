@@ -5,12 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"sync"
 	"time"
 
+	"github.com/khanghh/mcrunner/internal/mcagent"
 	"github.com/khanghh/mcrunner/internal/mccmd"
 	"github.com/khanghh/mcrunner/internal/sysmetrics"
+	"github.com/khanghh/mcrunner/pkg/logger"
 	pb "github.com/khanghh/mcrunner/pkg/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -21,6 +22,7 @@ import (
 type MCRunnerService struct {
 	pb.UnimplementedMCRunnerServer
 	mcserver    *mccmd.MCServerCmd
+	mcagent     *mcagent.MCAgentBridge
 	buffer      *ringBuffer
 	consoleSubs map[grpc.ServerStreamingServer[pb.ConsoleMessage]]struct{}
 	stateSubs   map[grpc.ServerStreamingServer[pb.ServerState]]struct{}
@@ -153,6 +155,9 @@ func (m *MCRunnerService) StreamState(p0 *emptypb.Empty, stream grpc.ServerStrea
 func (m *MCRunnerService) broadcastConsoleLoop() {
 	broadcastCh := make(chan *pb.ConsoleMessage, 1)
 	m.mcserver.OnStatusChanged(func(status mccmd.Status) {
+		if status == mccmd.StatusRunning {
+			m.mcagent.Reload()
+		}
 		broadcastCh <- NewPtyStatusMessage(status)
 	})
 	go func() {
@@ -182,7 +187,7 @@ func (m *MCRunnerService) broadcastConsoleLoop() {
 			m.mu.Lock()
 			for stream := range m.consoleSubs {
 				if err := stream.Send(msg); err != nil {
-					log.Println("Failed to send PTY buffer message:", err)
+					logger.Println("Failed to send PTY buffer message", "error", err)
 				}
 			}
 			m.mu.Unlock()
@@ -238,7 +243,7 @@ func (m *MCRunnerService) broadcastStateLoop() {
 			state := m.getServerState()
 			for stream := range m.stateSubs {
 				if err := stream.Send(state); err != nil {
-					log.Println("Failed to send server state message:", err)
+					logger.Errorln("Failed to send server state message", "error", err)
 				}
 			}
 			m.mu.Unlock()
@@ -248,7 +253,7 @@ func (m *MCRunnerService) broadcastStateLoop() {
 	}
 }
 
-func NewMCRunnerService(mcserver *mccmd.MCServerCmd) *MCRunnerService {
+func NewMCRunnerService(mcserver *mccmd.MCServerCmd, mcagent *mcagent.MCAgentBridge) *MCRunnerService {
 	svc := &MCRunnerService{
 		mcserver:    mcserver,
 		buffer:      newRingBuffer(1 << 20), // 1 MiB buffer
