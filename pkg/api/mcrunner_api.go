@@ -41,7 +41,6 @@ type APIError struct {
 // ServerState represents the server status response
 type ServerState struct {
 	Status      ServerStatus `json:"status"`                // current server status
-	TPS         float64      `json:"tps"`                   // ticks per second
 	PID         int          `json:"pid,omitempty"`         // process ID
 	IPAddress   string       `json:"ipAddress,omitempty"`   // server IP address
 	MemoryUsage *uint64      `json:"memoryUsage,omitempty"` // current memory usage in bytes
@@ -51,6 +50,15 @@ type ServerState struct {
 	DiskUsage   *uint64      `json:"diskUsage,omitempty"`   // current disk usage in bytes
 	DiskSize    *uint64      `json:"diskSize,omitempty"`    // disk size in bytes
 	UptimeSec   uint64       `json:"uptimeSec,omitempty"`   // server uptime in seconds
+	Server      *ServerInfo  `json:"server,omitempty"`      // Minecraft server info
+}
+
+type ServerInfo struct {
+	Name          string    `json:"name"`
+	Version       string    `json:"version"`
+	TPS           []float64 `json:"tps"`
+	PlayersOnline int       `json:"playersOnline"`
+	PlayersMax    int       `json:"playersMax"`
 }
 
 type CommandRequest struct {

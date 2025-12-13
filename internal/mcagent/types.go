@@ -30,7 +30,7 @@ type casErrorResponse struct {
 	Message string `json:"message"`
 }
 
-type ServerStats struct {
+type ServerInfo struct {
 	Name          string    `json:"name"`
 	Version       string    `json:"version"`
 	TPS           []float64 `json:"tps"`

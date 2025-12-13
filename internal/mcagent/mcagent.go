@@ -126,7 +126,7 @@ func (m *MCAgentBridge) LogoutPlayer(ctx context.Context, ticket string, usernam
 	return nil
 }
 
-func (m *MCAgentBridge) GetServerStats() (*ServerStats, error) {
+func (m *MCAgentBridge) GetServerInfo() (*ServerInfo, error) {
 	statsURL := fmt.Sprintf("http://localhost:%d/stats", m.config.HTTPPort)
 	resp, err := http.Get(statsURL)
 	if err != nil {
@@ -137,7 +137,7 @@ func (m *MCAgentBridge) GetServerStats() (*ServerStats, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("get server stats failed with status code %d", resp.StatusCode)
 	}
-	var stats ServerStats
+	var stats ServerInfo
 	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
 		return nil, err
 	}

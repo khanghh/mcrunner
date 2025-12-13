@@ -290,7 +290,6 @@ func run(cli *cli.Context) error {
 	apiRouter.Post("/mc/kill", mcrunnerHandler.PostKillServer)
 
 	router.Post("/login/callback", mcagentHandler.PostLoginCallback)
-	router.Post("/logout/callback", mcagentHandler.PostLogoutCallback)
 	router.Get("/livez", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})

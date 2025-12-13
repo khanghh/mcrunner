@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/khanghh/mcrunner/internal/mcagent"
 	"github.com/khanghh/mcrunner/internal/mccmd"
 	"github.com/khanghh/mcrunner/internal/sysmetrics"
 	"github.com/khanghh/mcrunner/pkg/api"
@@ -16,7 +17,8 @@ var (
 )
 
 type MCRunnerHandler struct {
-	mcserver *mccmd.MCServerCmd
+	mcserver *mccmd.MCServerCmd     // server process
+	mcagent  *mcagent.MCAgentBridge // plugin bridge
 }
 
 func (h *MCRunnerHandler) getServerState() api.ServerState {
@@ -44,10 +46,21 @@ func (h *MCRunnerHandler) getServerState() api.ServerState {
 	if process == nil {
 		return serverState
 	}
+	serverState.PID = process.Pid
 	if startTime := h.mcserver.GetStartTime(); startTime != nil {
 		serverState.UptimeSec = uint64(time.Since(*startTime).Seconds())
 	}
-	serverState.PID = process.Pid
+
+	if serverInfo, err := h.mcagent.GetServerInfo(); err == nil {
+		serverState.Server = &api.ServerInfo{
+			Name:          serverInfo.Name,
+			Version:       serverInfo.Version,
+			TPS:           serverInfo.TPS,
+			PlayersOnline: serverInfo.PlayersOnline,
+			PlayersMax:    serverInfo.PlayersMax,
+		}
+	}
+
 	return serverState
 }
 
