@@ -10,16 +10,9 @@ const (
 	DefaultHTTPPort = 8080
 )
 
-type AuthConfig struct {
-	ClientID     string `mapstructure:"clientID"`
-	ClientSecret string `mapstructure:"clientSecret"`
-	LoginURL     string `mapstructure:"loginURL"`
-	ValidateURL  string `mapstructure:"validateURL"`
-}
-
 type PluginConfig struct {
-	Auth     AuthConfig `mapstructure:"auth"`
-	HTTPPort int        `mapstructure:"httpPort"`
+	HTTPPort   int    `mapstructure:"httpPort"`
+	PlayAPIURL string `mapstructure:"playAPIURL"` // https://play.mineviet.com/api
 }
 
 func (c *PluginConfig) Sanitize() error {

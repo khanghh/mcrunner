@@ -3,12 +3,10 @@ package mcagent
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/khanghh/mcrunner/pkg/logger"
 )
@@ -18,61 +16,12 @@ type MCAgentBridge struct {
 	config     *PluginConfig
 }
 
-func (m *MCAgentBridge) IsAuthServer() bool {
-	return m.config.Auth != AuthConfig{}
+func (m *MCAgentBridge) HTTPPort() int {
+	return m.config.HTTPPort
 }
 
 func IsValidateTicketErr(err error) bool {
 	return err == ErrTicketNotFound || err == ErrTicketExpired || err == ErrServiceMismatch
-}
-
-func (m *MCAgentBridge) ValidateLoginTicket(ctx context.Context, callbackURL, ticket string) (*UserInfo, error) {
-	form := url.Values{}
-	form.Set("client_id", m.config.Auth.ClientID)
-	form.Set("client_secret", m.config.Auth.ClientSecret)
-	form.Set("service", callbackURL)
-	form.Set("ticket", ticket)
-
-	req, err := http.NewRequestWithContext(ctx, "POST", m.config.Auth.ValidateURL, strings.NewReader(form.Encode()))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		var errResp casErrorResponse
-		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-			return nil, err
-		}
-		return nil, errors.New(errResp.Message)
-	}
-
-	var authResp authenticationResponse
-	if err := json.NewDecoder(resp.Body).Decode(&authResp); err != nil {
-		return nil, err
-	}
-	if authResp.AuthenticationSuccess != nil {
-		return authResp.AuthenticationSuccess.User, nil
-	}
-
-	errBody := authResp.AuthenticationFailure
-	if errBody.Code == "TICKET_NOT_FOUND" {
-		return nil, ErrTicketNotFound
-	}
-	if errBody.Code == "TICKET_EXPIRED" {
-		return nil, ErrTicketExpired
-	}
-	if errBody.Code == "SERVICE_MISMATCH" {
-		return nil, ErrServiceMismatch
-	}
-
-	return nil, errors.New(authResp.AuthenticationFailure.Message)
 }
 
 // LoginPlayer sends a login request to the MCAgent plugin

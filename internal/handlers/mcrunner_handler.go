@@ -81,7 +81,7 @@ func (h *MCRunnerHandler) runWithTimeout(ctx *fiber.Ctx, fn func() error) error 
 }
 
 func (h *MCRunnerHandler) PostCommand(ctx *fiber.Ctx) error {
-	var req CommandRequest
+	var req api.CommandRequest
 	if err := ctx.BodyParser(&req); err != nil {
 		return BadRequestError("invalid request payload")
 	}
